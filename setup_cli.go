@@ -63,26 +63,24 @@ func (w *wizard) run() {
 		w.stats()
 		fmt.Println()
 		fmt.Println("What would you like to do?")
-		fmt.Println(" 1. Set up seed data")
-		fmt.Println(" 2. Set up & start Geth")
-		fmt.Println(" 3. Deploy new protocol contracts")
-		fmt.Println(" 4. Set up IPFS")
-		fmt.Println(" 5. Start & Set up broadcaster node")
-		fmt.Println(" 6. Start & Set up transcoder node")
+		// fmt.Println(" 1. Set up seed data")
+		fmt.Println(" 1. Set up & start Geth")
+		fmt.Println(" 2. Deploy new protocol contracts")
+		fmt.Println(" 3. Set up IPFS")
+		fmt.Println(" 4. Start & Set up broadcaster node")
+		fmt.Println(" 5. Start & Set up transcoder node")
 
 		choice := w.read()
 		switch {
 		case choice == "1":
-			w.setupSeedData()
-		case choice == "2":
 			w.setupAndStartGeth()
-		case choice == "3":
+		case choice == "2":
 			w.deployProtocol()
-		case choice == "4":
+		case choice == "3":
 			glog.Infof("TODO...")
-		case choice == "5":
+		case choice == "4":
 			w.setupAndStartBroadcaster()
-		case choice == "6":
+		case choice == "5":
 			w.setupAndStartTranscoder()
 		default:
 			log.Error("That's not something I can do")

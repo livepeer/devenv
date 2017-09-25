@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	"github.com/golang/glog"
 )
@@ -170,14 +171,14 @@ func File(filename string) []byte {
 func (w *wizard) stats() {
 	wtr := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', tabwriter.AlignRight)
 
-	//Print out if seed data is set up
-	seedSetup := false
-	if _, err := os.Stat(filepath.Join(dir, "lpdata1/keys.json")); !os.IsNotExist(err) {
-		if _, err := os.Stat(filepath.Join(dir, "lpdata2/keys.json")); !os.IsNotExist(err) {
-			seedSetup = true
-		}
-	}
-	fmt.Fprintf(wtr, "Seed data setup: \t%v\n", seedSetup)
+	// //Print out if seed data is set up
+	// seedSetup := false
+	// if _, err := os.Stat(filepath.Join(dir, "lpdata1/keys.json")); !os.IsNotExist(err) {
+	// 	if _, err := os.Stat(filepath.Join(dir, "lpdata2/keys.json")); !os.IsNotExist(err) {
+	// 		seedSetup = true
+	// 	}
+	// }
+	// fmt.Fprintf(wtr, "Seed data setup: \t%v\n", seedSetup)
 
 	//Print out if geth is set up and running
 	gethSetup := false
@@ -190,19 +191,28 @@ func (w *wizard) stats() {
 	//Print out protocol addresses
 	tc := string(File(filepath.Join(dir, "protocol/build/contracts/LivepeerToken.json")))
 	if tc != "" {
-		w.TokenAddr = strings.Split(tc, "address\": \"")[1][:42]
+		arr := strings.Split(tc, "address\": \"")
+		if len(arr) > 1 && len(arr[1]) > 42 {
+			w.TokenAddr = arr[1][:42]
+		}
 	}
 	fmt.Fprintf(wtr, "LivepeerToken: \t%v\n", w.TokenAddr)
 
 	pc := string(File(filepath.Join(dir, "protocol/build/contracts/LivepeerProtocol.json")))
 	if pc != "" {
-		w.ProtocolAddr = strings.Split(pc, "address\": \"")[1][:42]
+		arr := strings.Split(pc, "address\": \"")
+		if len(arr) > 1 && len(arr[1]) > 50 {
+			w.ProtocolAddr = arr[1][:42]
+		}
 	}
 	fmt.Fprintf(wtr, "LivepeerProtocol: \t%v\n", w.ProtocolAddr)
 
 	fc := string(File(filepath.Join(dir, "protocol/build/contracts/LivepeerTokenFaucet.json")))
 	if fc != "" {
-		w.FaucetAddr = strings.Split(fc, "address\": \"")[1][:42]
+		arr := strings.Split(fc, "address\": \"")
+		if len(arr) > 1 && len(arr[1]) > 50 {
+			w.FaucetAddr = arr[1][:42]
+		}
 	}
 	fmt.Fprintf(wtr, "LivepeerTokenFaucet: \t%v\n", w.FaucetAddr)
 
@@ -220,7 +230,7 @@ func (w *wizard) stats() {
 	} else {
 		bStatus = append(bStatus, "Has Deposit")
 	}
-	fmt.Fprintf(wtr, "Broadcaster running: \t%v\n", strings.Join(bStatus, ", "))
+	fmt.Fprintf(wtr, "Broadcaster Status: \t%v\n", strings.Join(bStatus, ", "))
 
 	//Print out if transcoder is running
 	tStatus := []string{}
@@ -230,20 +240,20 @@ func (w *wizard) stats() {
 		tStatus = append(tStatus, "Not Running")
 	}
 	tStatus = append(tStatus, w.getTranscoderStatus(transcoderPort))
-	fmt.Fprintf(wtr, "Transcoder running: \t%v\n", strings.Join(tStatus, ", "))
+	fmt.Fprintf(wtr, "Transcoder Status: \t%v\n", strings.Join(tStatus, ", "))
 
 	wtr.Flush()
 }
 
-func (w *wizard) setupSeedData() {
-	//Set up lpdata dirs
-	// if _, err := os.Stat(filepath.Join(dir, "lpdata1")); os.IsNotExist(err) {
-	os.Mkdir("lpdata1", 0777)
-	Copy(filepath.Join(dir, "lpkeys1.json"), filepath.Join(dir, "lpdata1", "keys.json"))
-	os.Mkdir("lpdata2", 0777)
-	Copy(filepath.Join(dir, "lpkeys2.json"), filepath.Join(dir, "lpdata2", "keys.json"))
-	// }
-}
+// func (w *wizard) setupSeedData() {
+// 	//Set up lpdata dirs
+// 	// if _, err := os.Stat(filepath.Join(dir, "lpdata1")); os.IsNotExist(err) {
+// 	os.Mkdir("lpdata1", 0777)
+// 	Copy(filepath.Join(dir, "lpkeys1.json"), filepath.Join(dir, "lpdata1", "keys.json"))
+// 	os.Mkdir("lpdata2", 0777)
+// 	Copy(filepath.Join(dir, "lpkeys2.json"), filepath.Join(dir, "lpdata2", "keys.json"))
+// 	// }
+// }
 
 func (w *wizard) setupAndStartGeth() {
 	//Set up geth genesis, init geth data
@@ -262,8 +272,18 @@ func (w *wizard) setupAndStartGeth() {
 		Copy(filepath.Join(dir, "keystore", "key1"), filepath.Join(dir, "lpGeth", "keystore", "key1"))
 		Copy(filepath.Join(dir, "keystore", "key2"), filepath.Join(dir, "lpGeth", "keystore", "key2"))
 	}
-	glog.Infof("To start Geth, run: `geth -datadir %v -networkid 54321 -rpc -unlock 0x94107cb2261e722f9f4908115546eeee17decada -mine console`", gethdir)
 
+	for i := 0; ; i++ {
+		if _, err := os.Stat(filepath.Join(gethdir, "geth.ipc")); os.IsNotExist(err) {
+			if i == 0 {
+				fmt.Printf("\nTo start Geth, run: `geth -datadir %v -networkid 54321 -rpc -unlock 0x94107cb2261e722f9f4908115546eeee17decada -mine console`\n", gethdir)
+			}
+			time.Sleep(time.Millisecond * 500)
+			continue
+		} else {
+			break
+		}
+	}
 }
 
 func (w *wizard) deployProtocol() {
@@ -276,7 +296,6 @@ func (w *wizard) deployProtocol() {
 		}
 	}
 
-	glog.Infof("Setting up protocol")
 	//Clone the protocol repo
 	if _, err := os.Stat(filepath.Join(dir, "protocol")); os.IsNotExist(err) {
 		cmd := exec.Command("git", "clone", "git@github.com:livepeer/protocol.git")
@@ -290,15 +309,35 @@ func (w *wizard) deployProtocol() {
 		//Copy truffle.js
 		Copy(filepath.Join(dir, "truffle.js"), filepath.Join(dir, "protocol", "truffle.js"))
 		Copy(filepath.Join(dir, "migrations.config.js"), filepath.Join(dir, "protocol", "migrations", "truffle.js"))
-	} else {
-		// exec.Command("cd", "protocol", "&&", "git", "pull")
-		// cmd.Start()
-		// if err := cmd.Wait(); err != nil {
-		// 	glog.Infof("Couldn't clone: %v", err)
-		// 	os.Exit(1)
-		// }
 	}
-	glog.Infof("Run `npm install && truffle migrate --network lpTestNet` in %v", filepath.Join(dir, "protocol"))
+
+	if _, err := os.Stat(filepath.Join("dir", "protocol/build")); os.IsNotExist(err) {
+		fmt.Println("Running `npm install`")
+		// cmd := exec.Command("cd", "protocol", "&&", "npm", "install", "&&", "truffle", "migrate", "--network", "lpTestNet")
+
+		cmd := exec.Command("npm", "install")
+		cmd.Dir = filepath.Join(dir, "protocol")
+		if err := cmd.Start(); err != nil {
+			glog.Errorf("err: %v", err)
+		}
+		if err := cmd.Wait(); err != nil {
+			glog.Infof("Couldn't clone: %v", err)
+			os.Exit(1)
+		}
+
+		fmt.Println("Running `truffle migrate --network lpTestNet`")
+		cmd = exec.Command("truffle", "migrate", "--network", "lpTestNet")
+		cmd.Dir = filepath.Join(dir, "protocol")
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Start(); err != nil {
+			glog.Errorf("err: %v", err)
+		}
+		if err := cmd.Wait(); err != nil {
+			glog.Infof("Couldn't clone: %v", err)
+			os.Exit(1)
+		}
+	}
 
 	//TODO: Run truffle migrate --network lpTestNet
 }
@@ -307,15 +346,29 @@ func (w *wizard) setupAndStartBroadcaster() {
 	if _, err := os.Stat(filepath.Join(dir, "livepeer")); os.IsNotExist(err) {
 		//Download Livepeer
 		download("https://github.com/livepeer/go-livepeer/releases/download/0.1.3/livepeer_darwin", "livepeer")
+		err := os.Chmod("livepeer", 0777)
+		if err != nil {
+			fmt.Println(err)
+		}
 		//TODO: Change to tar deployment and untar the executables.
 	}
-	cmd := fmt.Sprintf("./livepeer -bootnode -protocolAddr %v -tokenAddr %v -faucetAddr %v -datadir %v -ethDatadir %v -ethAccountAddr 0x94107cb2261e722f9f4908115546eeee17decada -monitor=false -rtmp %v -http %v &> lpBroadcaster.log",
-		w.ProtocolAddr, w.TokenAddr, w.FaucetAddr, filepath.Join(dir, "lpdata1"), filepath.Join(dir, "lpGeth"), broadcasterPort-7000, broadcasterPort)
-	glog.Infof("Command: %v", cmd)
 
-	if _, err := http.Get(fmt.Sprintf("http://localhost:%v", broadcasterPort)); err != nil {
-		glog.Infof("Start broadcaster before we can set it up")
-		return
+	if _, err := os.Stat(filepath.Join(dir, "lpdata1/keys.json")); os.IsNotExist(err) {
+		os.Mkdir("lpdata1", 0777)
+		Copy(filepath.Join(dir, "lpkeys1.json"), filepath.Join(dir, "lpdata1", "keys.json"))
+	}
+
+	for i := 0; ; i++ {
+		if _, err := http.Get(fmt.Sprintf("http://localhost:%v", broadcasterPort)); err != nil {
+			if i == 0 {
+				fmt.Println("Start broadcaster before we can set it up")
+				w.broadcasterCmd()
+			}
+			time.Sleep(time.Millisecond * 500)
+			continue
+		} else {
+			break
+		}
 	}
 
 	if w.getTokenBalance(broadcasterPort) == 0 {
@@ -337,15 +390,29 @@ func (w *wizard) setupAndStartTranscoder() {
 	if _, err := os.Stat(filepath.Join(dir, "livepeer")); os.IsNotExist(err) {
 		//Download Livepeer
 		download("https://github.com/livepeer/go-livepeer/releases/download/0.1.3/livepeer_darwin", "livepeer")
+		err := os.Chmod("livepeer", 0777)
+		if err != nil {
+			fmt.Println(err)
+		}
 		//TODO: Change to tar deployment and untar the executables.
 	}
-	cmd := fmt.Sprintf("./livepeer -bootnode -protocolAddr %v -tokenAddr %v -faucetAddr %v -datadir %v -ethDatadir %v -ethAccountAddr 0x94107cb2261e722f9f4908115546eeee17decada -monitor=false -rtmp %v -http %v -bootID 1220fd39d26e8a0ddf25693e574b821df32c45cd18fee1ee8bf329da96eb67bd2b5f -bootAddr /ip4/127.0.0.1/tcp/15000 -p 15001 -transcoder &> lpBroadcaster.log",
-		w.ProtocolAddr, w.TokenAddr, w.FaucetAddr, filepath.Join(dir, "lpdata2"), filepath.Join(dir, "lpGeth"), transcoderPort-7000, transcoderPort)
-	glog.Infof("Command: %v", cmd)
 
-	if _, err := http.Get(fmt.Sprintf("http://localhost:%v", transcoderPort)); err != nil {
-		glog.Infof("Start transcoder before we can set it up")
-		return
+	if _, err := os.Stat(filepath.Join(dir, "lpdata2/keys.json")); os.IsNotExist(err) {
+		os.Mkdir("lpdata2", 0777)
+		Copy(filepath.Join(dir, "lpkeys2.json"), filepath.Join(dir, "lpdata2", "keys.json"))
+	}
+
+	for i := 0; ; i++ {
+		if _, err := http.Get(fmt.Sprintf("http://localhost:%v", transcoderPort)); err != nil {
+			if i == 0 {
+				fmt.Println("Start transcoder before we can set it up")
+				w.transcoderCmd()
+			}
+			time.Sleep(time.Millisecond * 500)
+			continue
+		} else {
+			break
+		}
 	}
 
 	if w.getTranscoderStatus(transcoderPort) != "Active" {
@@ -360,6 +427,18 @@ func (w *wizard) setupAndStartTranscoder() {
 
 		httpPostWithParams(fmt.Sprintf("http://localhost:%v/activateTranscoder", transcoderPort), val)
 	}
+}
+
+func (w *wizard) broadcasterCmd() {
+	cmd := fmt.Sprintf("./livepeer -bootnode -protocolAddr %v -tokenAddr %v -faucetAddr %v -datadir %v -ethDatadir %v -ethAccountAddr 0x94107cb2261e722f9f4908115546eeee17decada -monitor=false -rtmp %v -http %v &> lpBroadcaster.log",
+		w.ProtocolAddr, w.TokenAddr, w.FaucetAddr, filepath.Join(dir, "lpdata1"), filepath.Join(dir, "lpGeth"), broadcasterPort-7000, broadcasterPort)
+	fmt.Printf("\n\nCommand: %v\n\n", cmd)
+}
+
+func (w *wizard) transcoderCmd() {
+	cmd := fmt.Sprintf("./livepeer -bootnode -protocolAddr %v -tokenAddr %v -faucetAddr %v -datadir %v -ethDatadir %v -ethAccountAddr 0x94107cb2261e722f9f4908115546eeee17decada -monitor=false -rtmp %v -http %v -bootID 1220fd39d26e8a0ddf25693e574b821df32c45cd18fee1ee8bf329da96eb67bd2b5f -bootAddr /ip4/127.0.0.1/tcp/15000 -p 15001 -transcoder &> lpBroadcaster.log",
+		w.ProtocolAddr, w.TokenAddr, w.FaucetAddr, filepath.Join(dir, "lpdata2"), filepath.Join(dir, "lpGeth"), transcoderPort-7000, transcoderPort)
+	fmt.Printf("\n\nCommand: %v\n\n", cmd)
 }
 
 func download(rawURL, fileName string) {
