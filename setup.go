@@ -3,11 +3,14 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"text/tabwriter"
 
@@ -153,8 +156,8 @@ func Copy(src string, dst string) {
 func File(filename string) []byte {
 	raw, err := ioutil.ReadFile(filename)
 	if err != nil {
-		fmt.Println(err.Error())
-		os.Exit(1)
+		// fmt.Println(err.Error())
+		return []byte{}
 	}
 	return raw
 }
@@ -186,54 +189,61 @@ func (w *wizard) stats() {
 	fmt.Fprintf(wtr, "Geth setup and running: \t%v\n", gethSetup)
 
 	//Print out protocol addresses
-	token := ""
 	tc := string(File(filepath.Join(dir, "protocol/build/contracts/LivepeerToken.json")))
 	if tc != "" {
-		token = strings.Split(tc, "address\": \"")[1][:42]
+		w.TokenAddr = strings.Split(tc, "address\": \"")[1][:42]
 	}
-	fmt.Fprintf(wtr, "LivepeerToken: \t%v\n", token)
+	fmt.Fprintf(wtr, "LivepeerToken: \t%v\n", w.TokenAddr)
 
-	protocol := ""
 	pc := string(File(filepath.Join(dir, "protocol/build/contracts/LivepeerProtocol.json")))
 	if pc != "" {
-		protocol = strings.Split(pc, "address\": \"")[1][:42]
+		w.ProtocolAddr = strings.Split(pc, "address\": \"")[1][:42]
 	}
-	fmt.Fprintf(wtr, "LivepeerProtocol: \t%v\n", protocol)
+	fmt.Fprintf(wtr, "LivepeerProtocol: \t%v\n", w.ProtocolAddr)
 
-	faucet := ""
 	fc := string(File(filepath.Join(dir, "protocol/build/contracts/LivepeerTokenFaucet.json")))
 	if fc != "" {
-		faucet = strings.Split(fc, "address\": \"")[1][:42]
+		w.FaucetAddr = strings.Split(fc, "address\": \"")[1][:42]
 	}
-	fmt.Fprintf(wtr, "LivepeerTokenFaucet: \t%v\n", faucet)
+	fmt.Fprintf(wtr, "LivepeerTokenFaucet: \t%v\n", w.FaucetAddr)
 
 	//TODO: Print out if IPFS is set up and running
 
 	//Print out if broadcaster is running
-	broadcaster := true
-	if _, err := http.Get(fmt.Sprintf("http://localhost:%v", broadcasterPort)); err != nil {
-		broadcaster = false
+	bStatus := []string{}
+	if _, err := http.Get(fmt.Sprintf("http://localhost:%v", broadcasterPort)); err == nil {
+		bStatus = append(bStatus, "Running")
+	} else {
+		bStatus = append(bStatus, "Not Running")
 	}
-	fmt.Fprintf(wtr, "Broadcaster running: \t%v\n", broadcaster)
+	if w.getDeposit(broadcasterPort) == 0 {
+		bStatus = append(bStatus, "No Deposit")
+	} else {
+		bStatus = append(bStatus, "Has Deposit")
+	}
+	fmt.Fprintf(wtr, "Broadcaster running: \t%v\n", strings.Join(bStatus, ", "))
 
 	//Print out if transcoder is running
-	transcoder := true
-	if _, err := http.Get(fmt.Sprintf("http://localhost:%v", transcoderPort)); err != nil {
-		transcoder = false
+	tStatus := []string{}
+	if _, err := http.Get(fmt.Sprintf("http://localhost:%v", transcoderPort)); err == nil {
+		tStatus = append(tStatus, "Running")
+	} else {
+		tStatus = append(tStatus, "Not Running")
 	}
-	fmt.Fprintf(wtr, "Transcoder running: \t%v\n", transcoder)
+	tStatus = append(tStatus, w.getTranscoderStatus(transcoderPort))
+	fmt.Fprintf(wtr, "Transcoder running: \t%v\n", strings.Join(tStatus, ", "))
 
 	wtr.Flush()
 }
 
 func (w *wizard) setupSeedData() {
 	//Set up lpdata dirs
-	if _, err := os.Stat(filepath.Join(dir, "lpdata1")); os.IsNotExist(err) {
-		os.Mkdir("lpdata1", 777)
-		Copy(filepath.Join(dir, "lpkeys1.json"), filepath.Join(dir, "lpdata1", "keys.json"))
-		os.Mkdir("lpdata2", 777)
-		Copy(filepath.Join(dir, "lpkeys2.json"), filepath.Join(dir, "lpdata2", "keys.json"))
-	}
+	// if _, err := os.Stat(filepath.Join(dir, "lpdata1")); os.IsNotExist(err) {
+	os.Mkdir("lpdata1", 0777)
+	Copy(filepath.Join(dir, "lpkeys1.json"), filepath.Join(dir, "lpdata1", "keys.json"))
+	os.Mkdir("lpdata2", 0777)
+	Copy(filepath.Join(dir, "lpkeys2.json"), filepath.Join(dir, "lpdata2", "keys.json"))
+	// }
 }
 
 func (w *wizard) setupAndStartGeth() {
@@ -289,15 +299,105 @@ func (w *wizard) deployProtocol() {
 		// 	os.Exit(1)
 		// }
 	}
-	glog.Infof("Run `npm install` in %v", filepath.Join(dir, "protocol"))
+	glog.Infof("Run `npm install && truffle migrate --network lpTestNet` in %v", filepath.Join(dir, "protocol"))
 
 	//TODO: Run truffle migrate --network lpTestNet
-	glog.Infof("To deploy contracts, run `truffle migrate --network lpTestNet`")
+}
 
-	//TODO: Parse and print out contract addresses
+func (w *wizard) setupAndStartBroadcaster() {
+	if _, err := os.Stat(filepath.Join(dir, "livepeer")); os.IsNotExist(err) {
+		//Download Livepeer
+		download("https://github.com/livepeer/go-livepeer/releases/download/0.1.3/livepeer_darwin", "livepeer")
+		//TODO: Change to tar deployment and untar the executables.
+	}
+	cmd := fmt.Sprintf("./livepeer -bootnode -protocolAddr %v -tokenAddr %v -faucetAddr %v -datadir %v -ethDatadir %v -ethAccountAddr 0x94107cb2261e722f9f4908115546eeee17decada -monitor=false -rtmp %v -http %v &> lpBroadcaster.log",
+		w.ProtocolAddr, w.TokenAddr, w.FaucetAddr, filepath.Join(dir, "lpdata1"), filepath.Join(dir, "lpGeth"), broadcasterPort-7000, broadcasterPort)
+	glog.Infof("Command: %v", cmd)
+
+	if w.getTokenBalance(broadcasterPort) == 0 {
+		glog.Infof("Requesting for test tokens")
+		httpPost(fmt.Sprintf("http://localhost:%v/requestTokens", broadcasterPort))
+	}
+
+	if w.getDeposit(broadcasterPort) == 0 {
+		glog.Infof("Depositing 500 tokens")
+		val := url.Values{
+			"amount": {"500"},
+		}
+		httpPostWithParams(fmt.Sprintf("http://localhost:%v/deposit", broadcasterPort), val)
+	}
 
 }
 
-func (w *wizard) setupBroadcaster() {
+func (w *wizard) setupAndStartTranscoder() {
+	if _, err := os.Stat(filepath.Join(dir, "livepeer")); os.IsNotExist(err) {
+		//Download Livepeer
+		download("https://github.com/livepeer/go-livepeer/releases/download/0.1.3/livepeer_darwin", "livepeer")
+		//TODO: Change to tar deployment and untar the executables.
+	}
+	cmd := fmt.Sprintf("./livepeer -bootnode -protocolAddr %v -tokenAddr %v -faucetAddr %v -datadir %v -ethDatadir %v -ethAccountAddr 0x94107cb2261e722f9f4908115546eeee17decada -monitor=false -rtmp %v -http %v -bootID 1220fd39d26e8a0ddf25693e574b821df32c45cd18fee1ee8bf329da96eb67bd2b5f -bootAddr /ip4/127.0.0.1/tcp/15000 -p 15001 -transcoder &> lpBroadcaster.log",
+		w.ProtocolAddr, w.TokenAddr, w.FaucetAddr, filepath.Join(dir, "lpdata2"), filepath.Join(dir, "lpGeth"), transcoderPort-7000, transcoderPort)
+	glog.Infof("Command: %v", cmd)
 
+	if w.getTranscoderStatus(transcoderPort) != "Active" {
+		glog.Infof("Activating transcoder")
+
+		val := url.Values{
+			"blockRewardCut":  {fmt.Sprintf("%v", 10)},
+			"feeShare":        {fmt.Sprintf("%v", 5)},
+			"pricePerSegment": {fmt.Sprintf("%v", 1)},
+			"amount":          {fmt.Sprintf("%v", 500)},
+		}
+
+		httpPostWithParams(fmt.Sprintf("http://localhost:%v/activateTranscoder", transcoderPort), val)
+	}
+}
+
+func download(rawURL, fileName string) {
+	file, err := os.Create(fileName)
+	if err != nil {
+		fmt.Println(err)
+		panic(err)
+	}
+	defer file.Close()
+
+	check := http.Client{
+		CheckRedirect: func(r *http.Request, via []*http.Request) error {
+			r.URL.Opaque = r.URL.Path
+			return nil
+		},
+	}
+
+	resp, err := check.Get(rawURL) // add a filter to check redirect
+
+	if err != nil {
+		fmt.Println(err)
+		panic(err)
+	}
+	defer resp.Body.Close()
+	fmt.Println(resp.Status)
+
+	size, err := io.Copy(file, resp.Body)
+
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("%s with %v bytes downloaded", fileName, size)
+}
+
+func (w *wizard) getDeposit(port int) int {
+	e := httpGet(fmt.Sprintf("http://localhost:%v/broadcasterDeposit", port))
+	i, _ := strconv.Atoi(e)
+	return i
+}
+
+func (w *wizard) getTokenBalance(port int) int {
+	b := httpGet(fmt.Sprintf("http://localhost:%v/tokenBalance", port))
+	i, _ := strconv.Atoi(b)
+	return i
+}
+
+func (w *wizard) getTranscoderStatus(port int) string {
+	return httpGet(fmt.Sprintf("http://localhost:%v/transcoderStatus", port))
 }

@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
-	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/log"
@@ -46,14 +44,13 @@ func main() {
 }
 
 type wizard struct {
-	in *bufio.Reader // Wrapper around stdin to allow reading user input
+	in           *bufio.Reader // Wrapper around stdin to allow reading user input
+	ProtocolAddr string
+	TokenAddr    string
+	FaucetAddr   string
 }
 
 func (w *wizard) run() {
-	tc := string(File(filepath.Join(dir, "protocol/build/contracts/LivepeerToken.json")))
-	token := strings.Split(string(tc), "address\": \"")[1][:42]
-	glog.Infof("LivepeerToken: %v", token)
-
 	glog.Infof("Make sure you are in the testenv directory.")
 
 	fmt.Println("+-------------------------------------------------------------+")
@@ -78,6 +75,15 @@ func (w *wizard) run() {
 		case choice == "1":
 			w.setupSeedData()
 		case choice == "2":
+			w.setupAndStartGeth()
+		case choice == "3":
+			w.deployProtocol()
+		case choice == "4":
+			glog.Infof("TODO...")
+		case choice == "5":
+			w.setupAndStartBroadcaster()
+		case choice == "6":
+			w.setupAndStartTranscoder()
 		default:
 			log.Error("That's not something I can do")
 		}
