@@ -188,33 +188,15 @@ func (w *wizard) stats() {
 	}
 	fmt.Fprintf(wtr, "Geth setup and running: \t%v\n", gethSetup)
 
-	//Print out protocol addresses
-	tc := string(File(filepath.Join(dir, "protocol/build/contracts/LivepeerToken.json")))
+	//Print out controller addresses
+	tc := string(File(filepath.Join(dir, "protocol/build/contracts/Controller.json")))
 	if tc != "" {
 		arr := strings.Split(tc, "address\": \"")
 		if len(arr) > 1 && len(arr[1]) > 42 {
-			w.TokenAddr = arr[1][:42]
+			w.ControllerAddr = arr[1][:42]
 		}
 	}
-	fmt.Fprintf(wtr, "LivepeerToken: \t%v\n", w.TokenAddr)
-
-	pc := string(File(filepath.Join(dir, "protocol/build/contracts/LivepeerProtocol.json")))
-	if pc != "" {
-		arr := strings.Split(pc, "address\": \"")
-		if len(arr) > 1 && len(arr[1]) > 50 {
-			w.ProtocolAddr = arr[1][:42]
-		}
-	}
-	fmt.Fprintf(wtr, "LivepeerProtocol: \t%v\n", w.ProtocolAddr)
-
-	fc := string(File(filepath.Join(dir, "protocol/build/contracts/LivepeerTokenFaucet.json")))
-	if fc != "" {
-		arr := strings.Split(fc, "address\": \"")
-		if len(arr) > 1 && len(arr[1]) > 50 {
-			w.FaucetAddr = arr[1][:42]
-		}
-	}
-	fmt.Fprintf(wtr, "LivepeerTokenFaucet: \t%v\n", w.FaucetAddr)
+	fmt.Fprintf(wtr, "Controller: \t%v\n", w.ControllerAddr)
 
 	//TODO: Print out if IPFS is set up and running
 
@@ -304,7 +286,14 @@ func (w *wizard) deployProtocol() {
 			glog.Infof("Couldn't clone: %v", err)
 			os.Exit(1)
 		}
-		glog.Infof("Done cloning protocol")
+		fmt.Println("Done cloning protocol")
+
+		cmd = exec.Command("git", "checkout", "develop")
+		cmd.Start()
+		if err := cmd.Wait(); err != nil {
+			glog.Infof("Couldn't checkout develop: %v", err)
+			os.Exit(1)
+		}
 
 		//Copy truffle.js
 		Copy(filepath.Join(dir, "truffle.js"), filepath.Join(dir, "protocol", "truffle.js"))
@@ -415,6 +404,11 @@ func (w *wizard) setupAndStartTranscoder() {
 		}
 	}
 
+	if w.getTokenBalance(transcoderPort) == 0 {
+		glog.Infof("Requesting for test tokens")
+		httpPost(fmt.Sprintf("http://localhost:%v/requestTokens", transcoderPort))
+	}
+
 	if w.getTranscoderStatus(transcoderPort) != "Active" {
 		glog.Infof("Activating transcoder")
 
@@ -430,14 +424,14 @@ func (w *wizard) setupAndStartTranscoder() {
 }
 
 func (w *wizard) broadcasterCmd() {
-	cmd := fmt.Sprintf("./livepeer -bootnode -protocolAddr %v -tokenAddr %v -faucetAddr %v -datadir %v -ethDatadir %v -ethAccountAddr 0x94107cb2261e722f9f4908115546eeee17decada -monitor=false -rtmp %v -http %v &> lpBroadcaster.log",
-		w.ProtocolAddr, w.TokenAddr, w.FaucetAddr, filepath.Join(dir, "lpdata1"), filepath.Join(dir, "lpGeth"), broadcasterPort-7000, broadcasterPort)
+	cmd := fmt.Sprintf("./livepeer -bootnode -controllerAddr %v -datadir %v -ethDatadir %v -ethAccountAddr 0x94107cb2261e722f9f4908115546eeee17decada -monitor=false -rtmp %v -http %v &> lpBroadcaster.log",
+		w.ControllerAddr, filepath.Join(dir, "lpdata1"), filepath.Join(dir, "lpGeth"), broadcasterPort-7000, broadcasterPort)
 	fmt.Printf("\n\nCommand: %v\n\n", cmd)
 }
 
 func (w *wizard) transcoderCmd() {
-	cmd := fmt.Sprintf("./livepeer -bootnode -protocolAddr %v -tokenAddr %v -faucetAddr %v -datadir %v -ethDatadir %v -ethAccountAddr 0x94107cb2261e722f9f4908115546eeee17decada -monitor=false -rtmp %v -http %v -bootID 1220fd39d26e8a0ddf25693e574b821df32c45cd18fee1ee8bf329da96eb67bd2b5f -bootAddr /ip4/127.0.0.1/tcp/15000 -p 15001 -transcoder &> lpBroadcaster.log",
-		w.ProtocolAddr, w.TokenAddr, w.FaucetAddr, filepath.Join(dir, "lpdata2"), filepath.Join(dir, "lpGeth"), transcoderPort-7000, transcoderPort)
+	cmd := fmt.Sprintf("./livepeer -controllerAddr %v -datadir %v -ethDatadir %v -ethAccountAddr 0x0ddb225031ccb58ff42866f82d907f7766899014 -monitor=false -rtmp %v -http %v -bootID 1220fd39d26e8a0ddf25693e574b821df32c45cd18fee1ee8bf329da96eb67bd2b5f -bootAddr /ip4/127.0.0.1/tcp/15000 -p 15001 -transcoder &> lpBroadcaster.log",
+		w.ControllerAddr, filepath.Join(dir, "lpdata2"), filepath.Join(dir, "lpGeth"), transcoderPort-7000, transcoderPort)
 	fmt.Printf("\n\nCommand: %v\n\n", cmd)
 }
 

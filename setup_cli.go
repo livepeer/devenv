@@ -44,10 +44,8 @@ func main() {
 }
 
 type wizard struct {
-	in           *bufio.Reader // Wrapper around stdin to allow reading user input
-	ProtocolAddr string
-	TokenAddr    string
-	FaucetAddr   string
+	in             *bufio.Reader // Wrapper around stdin to allow reading user input
+	ControllerAddr string
 }
 
 func (w *wizard) run() {
