@@ -63,7 +63,7 @@ func (w *wizard) run() {
 		fmt.Println("What would you like to do?")
 		// fmt.Println(" 1. Set up seed data")
 		fmt.Println(" 1. Set up & start Geth")
-		fmt.Println(" 2. Deploy new protocol contracts")
+		fmt.Println(" 2. Deploy/Overwrite protocol contracts")
 		fmt.Println(" 3. Set up IPFS")
 		fmt.Println(" 4. Start & Set up broadcaster node")
 		fmt.Println(" 5. Start & Set up transcoder node")
