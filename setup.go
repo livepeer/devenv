@@ -130,7 +130,7 @@ func (w *wizard) setupAndStartGeth() {
 	for i := 0; ; i++ {
 		if _, err := os.Stat(filepath.Join(gethdir, "geth.ipc")); os.IsNotExist(err) {
 			if i == 0 {
-				fmt.Printf("\nTo start Geth, run: `geth -datadir %v -networkid 54321 -rpc -unlock 0x94107cb2261e722f9f4908115546eeee17decada -mine console`\n", gethdir)
+				fmt.Printf("\nTo start Geth, run: `geth -datadir %v -networkid 54321 -rpc -rpcapi 'personal,account,eth,web3' -targetgaslimit 6700000 -unlock 0x94107cb2261e722f9f4908115546eeee17decada -mine console`\n", gethdir)
 			}
 			time.Sleep(time.Millisecond * 500)
 			continue
