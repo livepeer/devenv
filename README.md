@@ -9,13 +9,13 @@ To use this tool, clone it and run `go run *.go`
 
 # Dev Environment
 
-**Note:** This is currently a work in progress. The previous `testenv` will move to support this model and deprecate the instructions once the proper tooling is in place. Do not follow the steps above within this virtual machine and except them to work.
+**Note:** This is currently a work in progress. The previous `testenv` will move to support this model and deprecate the instructions above once the proper tooling is in place.
 
 ## Installation
 
-Install Vagrant: https://www.vagrantup.com/
+Install Vagrant 2.0.x: https://www.vagrantup.com/
 
-Install VirtualBox: https://www.virtualbox.org/
+Install VirtualBox 5.0.x or 5.1.x: https://www.virtualbox.org/
 
 Clone the repo and run this command:
 
