@@ -20,8 +20,12 @@ Vagrant.configure("2") do |config|
 
   config.vm.provider "virtualbox" do |vb|
     # Customize the number of CPUs and amount of memory on the VM:
-    vb.cpus = "2"
-    vb.memory = "2048"
+    vb.cpus = 2
+    vb.gui = false
+    vb.memory = 2048
+
+    vb.customize ["modifyvm", :id, "--uart1", "0x3f8", "4"]
+    vb.customize ["modifyvm", :id, "--uartmode1", "disconnected"]
   end
 
 end
