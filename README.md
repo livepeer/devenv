@@ -67,3 +67,7 @@ This is the $GOROOT for this virtual machine.
 
 ### ~/src
 This is the local copies of various source repositories. Currently it includes a handful of repos. Feel free to add more as needed.
+
+## Building
+
+Step-by-step instructions for building live in [BUILDING.md](BUILDING.md).
