@@ -68,6 +68,16 @@ This is the $GOROOT for this virtual machine.
 ### ~/src
 This is the local copies of various source repositories. Currently it includes a handful of repos. Feel free to add more as needed.
 
+### Vagrant Commands
+These commands are useful for operating a virtual machine run by Vagrant. Run them in the directory that contains your Vagrantfile.
+
+- If you want to init or boot it: `vagrant up`
+- If you want to stop it: `vagrant halt`
+- If you want to pause it: `vagrant suspend`
+- If you want to blow it away and start over: `vagrant destroy`
+- If you want to reboot the machine: `vagrant reload`
+_Reload is useful if you change the Vagrantfile configuration and want to apply those changes._
+
 ## Building
 
 Step-by-step instructions for building live in [BUILDING.md](BUILDING.md).
