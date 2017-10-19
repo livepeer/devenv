@@ -6,3 +6,64 @@ Setting up a local test environment.
 - Start transcoder
 
 To use this tool, clone it and run `go run *.go`
+
+# Dev Environment
+
+**Note:** This is currently a work in progress. The previous `testenv` will move to support this model and deprecate the instructions once the proper tooling is in place. Do not follow the steps above within this virtual machine and except them to work.
+
+## Installation
+
+Install Vagrant: https://www.vagrantup.com/
+
+Install VirtualBox: https://www.virtualbox.org/
+
+Clone the repo and run this command:
+
+```
+git clone https://github.com/livepeer/testenv.git
+cd testenv
+vagrant up
+```
+
+Then connect to the virtual machine:
+
+```
+vagrant ssh -- -A
+```
+
+## Usage
+
+**Protip:** Virtual machines are cheap. Don’t feel tied to this directory. Make new directories and copy the Vagrantfile to start fresh at anytime. Or `vagrant destroy` to blow away the vm in this directory.
+
+The following software is included in this virtual machine:
+
+```
+Welcome to the Livepeer Dev Environment
+Based on: Ubuntu 16.04.3 LTS (GNU/Linux 4.4.0-96-generic x86_64)
+
+Contains:
+	* Go: 1.9.1 linux/amd64
+	* Node: 8.7.0
+	* npm: 5.4.2
+	* Geth: 1.7.2-stable-1db4ecdc
+	* Truffle: v3.4.11
+	* TestRPC: n/a
+	* ffmpeg: 3.1-static (livepeer/ffmpeg-static)
+	* livepeer: 0.1.2
+	* livepeer_cli: 0.0.0
+
+Repos:
+	* go-livepeer: master (2e545787a)
+	* protocol: master (8fdec47a0)
+	* testenv: master (7c2aa5896)
+
+Documentation: https://github.com/livepeer/testenv
+```
+
+The following directories are part of the `ubuntu` user’s $HOME:
+
+### ~/go
+This is the $GOROOT for this virtual machine.
+
+### ~/src
+This is the local copies of various source repositories. Currently it includes a handful of repos. Feel free to add more as needed.
