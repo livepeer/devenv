@@ -169,7 +169,7 @@ func (w *wizard) deployProtocol() {
 
 		//Copy truffle.js
 		Copy(filepath.Join(dir, "truffle.js"), filepath.Join(dir, "protocol", "truffle.js"))
-		Copy(filepath.Join(dir, "migrations.config.js"), filepath.Join(dir, "protocol", "migrations", "truffle.js"))
+		Copy(filepath.Join(dir, "migrations.config.js"), filepath.Join(dir, "protocol", "migrations", "migrations.config.js"))
 	}
 
 	if _, err := os.Stat(filepath.Join("dir", "protocol/build")); os.IsNotExist(err) {
