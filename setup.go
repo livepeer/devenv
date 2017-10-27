@@ -152,7 +152,7 @@ func (w *wizard) deployProtocol() {
 
 	//Clone the protocol repo
 	if _, err := os.Stat(filepath.Join(dir, "protocol")); os.IsNotExist(err) {
-		cmd := exec.Command("git", "clone", "git@github.com:livepeer/protocol.git")
+		cmd := exec.Command("git", "clone", "-b", "develop", "https://github.com/livepeer/protocol.git")
 		cmd.Start()
 		if err := cmd.Wait(); err != nil {
 			glog.Infof("Couldn't clone: %v", err)
@@ -160,16 +160,9 @@ func (w *wizard) deployProtocol() {
 		}
 		fmt.Println("Done cloning protocol")
 
-		cmd = exec.Command("git", "checkout", "develop")
-		cmd.Start()
-		if err := cmd.Wait(); err != nil {
-			glog.Infof("Couldn't checkout develop: %v", err)
-			os.Exit(1)
-		}
-
 		//Copy truffle.js
 		Copy(filepath.Join(dir, "truffle.js"), filepath.Join(dir, "protocol", "truffle.js"))
-		Copy(filepath.Join(dir, "migrations.config.js"), filepath.Join(dir, "protocol", "migrations", "truffle.js"))
+		Copy(filepath.Join(dir, "migrations.config.js"), filepath.Join(dir, "protocol", "migrations", "migrations.config.js"))
 	}
 
 	if _, err := os.Stat(filepath.Join("dir", "protocol/build")); os.IsNotExist(err) {
