@@ -234,7 +234,7 @@ function __lpdev_geth_run {
        --password <(echo \"\")
        -mine"
 
-  geth -networkid 54321 -rpc -rpcapi 'personal,account,eth,web3,net' -targetgaslimit 6700000 -unlock $gethMiningAccount --password <(echo "") -mine &>/dev/null &
+  nohup geth -networkid 54321 -rpc -rpcapi 'personal,account,eth,web3,net' -targetgaslimit 6700000 -unlock $gethMiningAccount --password <(echo "") -mine &>>$nodeBaseDataDir/geth.log &
 
   if [ $? -ne 0 ];
   then
@@ -290,6 +290,13 @@ function __lpdev_protocol_init {
   ##
   # Install local dev truffle.js
   ##
+
+  __lpdev_geth_refresh_status
+  if [ -z "${gethMiningAccountngAccount}" ]
+  then
+    echo "Geth Mining Account not found"
+    return 1
+  fi
 
   if grep -q ${gethMiningAccount:-"none"} $srcDir/protocol/truffle.js
   then
