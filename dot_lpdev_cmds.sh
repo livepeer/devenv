@@ -292,7 +292,8 @@ function __lpdev_protocol_init {
   ##
 
   __lpdev_geth_refresh_status
-  if [ -z "${gethMiningAccountngAccount}" ]
+
+  if [ -z "${gethMiningAccount}" ]
   then
     echo "Geth Mining Account not found"
     return 1
