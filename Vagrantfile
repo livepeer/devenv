@@ -61,6 +61,9 @@ Vagrant.configure("2") do |config|
   #        s.inline = "echo $USER && usermod -u #{uid} ubuntu && groupmod -g #{gid} ubuntu"
   #end
 
+  config.vm.provision "shell", inline: "sudo apt-get update"
+  config.vm.provision "shell", inline: "sudo apt-get install -y bindfs"
+
   config.vm.provision "file", source: "dot_lpdev_cmds.sh", destination: "$HOME/.lpdev_cmds.sh"
   config.vm.provision "shell", inline: "if ! grep -q lpdev_cmds.sh /home/ubuntu/.bashrc; then echo 'source $HOME/.lpdev_cmds.sh' >> /home/ubuntu/.bashrc; fi"
 

@@ -287,6 +287,17 @@ function __lpdev_protocol_init {
     cd $OPWD
   fi
 
+  if [ ! -d $HOME/.protocol_node_modules ]
+  then
+    mkdir $HOME/.protocol_node_modules
+  fi
+
+  if ! mountpoint -q $srcDir/protocol/node_modules
+  then
+    echo "Mounting local vm node_modules"
+    bindfs -n -o nonempty $HOME/.protocol_node_modules $srcDir/protocol/node_modules
+  fi
+
   ##
   # Install local dev truffle.js
   ##
@@ -370,7 +381,8 @@ EOF
   # Update npm
   ##
 
-  if [ -d $srcDir/protocol/node_modules ]
+  listModules=($(ls $srcDir/protocol/node_modules))
+  if [ -d $srcDir/protocol/node_modules ] && [ ${#listModules[@]} -gt 0 ]
   then
     echo "Npm packages already installed"
   else
