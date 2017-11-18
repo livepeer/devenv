@@ -60,7 +60,7 @@ function __lpdev_status {
   then
     gethAccounts=($(geth account list | cut -d' ' -f3 | tr -cd '[:alnum:]\n'))
     echo "Geth accounts:"
-    for i in ${!gethAccounts[@]};
+    for i in ${!gethAccounts[@]}
     do
       accountAddress=${gethAccounts[$i]}
       if [ $i -eq 0 ]
@@ -130,7 +130,7 @@ function __lpdev_geth_refresh_status {
 
   if [ -e $gethIPC ]
   then
-    gethMiningAccount=$(geth attach ipc:/home/ubuntu/.ethereum/geth.ipc --exec "eth.coinbase" | cut -d"x" -f2 | tr -cd "[:alnum:]")
+    gethMiningAccount=$(geth attach ipc:/home/ubuntu/.ethereum/geth.ipc --exec "eth.coinbase" 2> /dev/null | grep "0x" | cut -d"x" -f2 | tr -cd "[:alnum:]")
   fi
 
   if [ -n "${gethPid}" ] && [ -n "${gethMiningAccount}" ]
@@ -208,7 +208,7 @@ function __lpdev_geth_init {
 EOF
 )
 
-  if [ $? -ne 0 ];
+  if [ $? -ne 0 ]
   then
     echo "Could not initialize Geth"
   fi
@@ -236,7 +236,7 @@ function __lpdev_geth_run {
 
   nohup geth -networkid 54321 -rpc -rpcapi 'personal,account,eth,web3,net' -targetgaslimit 6700000 -unlock $gethMiningAccount --password <(echo "") -mine &>>$nodeBaseDataDir/geth.log &
 
-  if [ $? -ne 0 ];
+  if [ $? -ne 0 ]
   then
     echo "Could not start Geth"
   else
@@ -276,7 +276,7 @@ function __lpdev_protocol_reset {
 
 function __lpdev_protocol_init {
 
-  if [ -d $srcDir/protocol ];
+  if [ -d $srcDir/protocol ]
   then
     echo "Protocol src directory exists"
   else
@@ -685,7 +685,8 @@ function __lpdev_wizard {
   "Exit"
   )
 
-  select opt in "${wizardOptions[@]}"; do
+  select opt in "${wizardOptions[@]}"
+  do
     case $opt in
       "Display status")
         __lpdev_status
