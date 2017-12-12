@@ -3,7 +3,7 @@
 ## Create an empty VirtualBox vm
 
 ```
-vagrant init ubuntu/xenial64
+vagrant init bento/ubuntu-16.04
 vagrant box update
 vagrant up
 ```
@@ -56,29 +56,6 @@ chmod 755 ffmpeg
 sudo mv ffmpeg /usr/local/bin/
 ```
 
-### Update .profile:
-```
-echo 'PATH="$PATH:/usr/local/go/bin"' >> ~/.profile
-echo 'PATH="$PATH:$HOME/go/bin"' >> ~/.profile
-source ~/.profile
-```
-
-### Install IPFS:
-```
-wget https://ipfs.io/ipns/dist.ipfs.io/go-ipfs/v0.4.11/go-ipfs_v0.4.11_linux-amd64.tar.gz
-tar -zxvf go-ipfs_v0.4.11_linux-amd64.tar.gz
-cd go-ipfs
-sudo ./install.sh
-cd ~
-```
-
-### Clean up
-```
-cd ~
-rm *.tar.gz
-rm -rf go-ipfs/
-```
-
 ### Install geth / go-ethereum:
 ```
 sudo apt-get install software-properties-common
@@ -92,17 +69,50 @@ sudo apt-get install ethereum
 sudo npm install -g truffle
 ```
 
-### Clone git repos:
+### Install IPFS:
 ```
-mkdir src && cd src
-git clone https://github.com/livepeer/go-livepeer.git
-git clone https://github.com/livepeer/testenv.git
-git clone https://github.com/livepeer/protocol.git
+wget https://ipfs.io/ipns/dist.ipfs.io/go-ipfs/v0.4.11/go-ipfs_v0.4.11_linux-amd64.tar.gz
+tar -zxvf go-ipfs_v0.4.11_linux-amd64.tar.gz
+cd go-ipfs
+sudo ./install.sh
 cd ~
 ```
 
-### Compile and install the latest `livepeer` and `livepeer_cli`
+### Install Livepeer Release
 ```
-go get github.com/livepeer/go-livepeer/cmd/livepeer
-go get github.com/livepeer/go-livepeer/cmd/livepeer_cli
+wget https://github.com/livepeer/go-livepeer/releases/download/0.1.6/livepeer_linux.tar
+tar -xf livepeer_linux.tar
+```
+
+### Update .profile:
+```
+echo 'PATH="$PATH:/usr/local/go/bin"' >> ~/.profile
+echo 'PATH="$PATH:$HOME/go/bin"' >> ~/.profile
+echo 'PATH="$PATH:$HOME/livepeer_linux"' >> ~/.profile
+source ~/.profile
+```
+
+### Clean up
+```
+cd ~
+rm *.tar*
+rm -rf go-ipfs/
+```
+
+#### Remove apt cache
+```
+sudo apt-get clean -y
+sudo apt-get autoclean -y
+```
+
+#### Remove bash history
+```
+unset HISTFILE
+sudo rm -f /root/.bash_history
+rm -f /home/vagrant/.bash_history
+```
+
+#### Remove log files
+```
+sudo find /var/log -type f -exec truncate -s 0 {} \;
 ```
