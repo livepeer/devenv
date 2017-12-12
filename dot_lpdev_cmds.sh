@@ -322,12 +322,16 @@ function __lpdev_protocol_init {
     echo "Installing local dev version of $srcDir/protocol/truffle.js"
 
     cat << EOF > $srcDir/protocol/truffle.js
+require("babel-register")
+require("babel-polyfill")
+
 module.exports = {
     networks: {
         development: {
             host: "localhost",
             port: 8545,
-            network_id: "*" // Match any network id
+            network_id: "*", // Match any network id
+            gas: 6700000
         },
         lpTestNet: {
             from: "0x$gethMiningAccount",
@@ -336,48 +340,14 @@ module.exports = {
             network_id: 54321,
             gas: 6700000
         }
+    },
+    solc: {
+        optimizer: {
+            enabled: true,
+            runs: 200
+        }
     }
 };
-EOF
-
-    echo "Installing local dev version of $srcDir/protocol/migrations/migrations.config.js"
-
-    cat << EOF > $srcDir/protocol/migrations/migrations.config.js
-module.exports = {
-    bondingManager: {
-        numActiveTranscoders: 5,
-        unbondingPeriod: 2
-    },
-    jobsManager: {
-        verificationRate: 10,
-        jobEndingPeriod: 50,
-        verificationPeriod: 50,
-        slashingPeriod: 50,
-        failedVerificationSlashAmount: 20,
-        missedVerificationSlashAmount: 30,
-        finderFee: 4
-    },
-    roundsManager: {
-        blockTime: 1,
-        roundLength: 5
-    },
-    faucet: {
-        faucetAmount: 100000000000000000000,
-        requestAmount: 1000000,
-        requestWait: 2,
-        whitelist: []
-    },
-    minter: {
-        initialTokenSupply: 10000000 * Math.pow(10, 18),
-        yearlyInflation: 26
-    },
-    verifier: {
-        verificationCodeHash: "QmWdbVR8SUS9TU5a9HFP2qG18ck6Vh4mL2PYsHcB9sHXN7",
-        solvers: ["0x0ddb225031ccb58ff42866f82d907f7766899014"],
-        gasPrice: 20000000000,
-        gasLimit: 3000000
-    }
-}
 EOF
 
   fi
@@ -413,7 +383,7 @@ function __lpdev_protocol_deploy {
 
   if $protocolBuilt && [ -n "${controllerAddress}" ]
   then
-    echo "Protocol already deployed ($controllerAddress)"
+    echo "Protocol was previously deployed ($controllerAddress)"
     read -p "Would you like to recompile and redeploy? [y/N] " -n 1 -r
     echo ""
     if [[ ! $REPLY =~ ^[Yy]$ ]]
