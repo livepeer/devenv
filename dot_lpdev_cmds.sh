@@ -473,7 +473,7 @@ function __lpdev_node_broadcaster {
   fi
 
   echo "Transferring funds to $broadcasterGeth"
-  transferEth="geth attach ipc:/home/ubuntu/.ethereum/geth.ipc --exec 'eth.sendTransaction({from: \"$gethMiningAccount\", to: \"$broadcasterGeth\", value: web3.toWei(1000000, \"ether\")})'"
+  transferEth="geth attach ipc:/home/vagrant/.ethereum/geth.ipc --exec 'eth.sendTransaction({from: \"$gethMiningAccount\", to: \"$broadcasterGeth\", value: web3.toWei(1000000, \"ether\")})'"
   echo "Running $transferEth"
   eval $transferEth
 
@@ -573,7 +573,7 @@ function __lpdev_node_transcoder {
   fi
 
   echo "Transferring funds to $transcoderGeth"
-  transferEth="geth attach ipc:/home/ubuntu/.ethereum/geth.ipc --exec 'eth.sendTransaction({from: \"$gethMiningAccount\", to: \"$transcoderGeth\", value: web3.toWei(1000000, \"ether\")})'"
+  transferEth="geth attach ipc:/home/vagrant/.ethereum/geth.ipc --exec 'eth.sendTransaction({from: \"$gethMiningAccount\", to: \"$transcoderGeth\", value: web3.toWei(1000000, \"ether\")})'"
   echo "Running $transferEth"
   eval $transferEth
 
