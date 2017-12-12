@@ -105,24 +105,19 @@ Based on: Ubuntu 16.04.3 LTS (GNU/Linux 4.4.0-96-generic x86_64)
 
 Contains:
 	* Go: 1.9.1 linux/amd64
-	* Node: 8.7.0
-	* npm: 5.4.2
-	* Geth: 1.7.2-stable-1db4ecdc
-	* Truffle: v3.4.11
+	* Node: 8.9.3
+	* npm: 5.5.1
+	* Geth: 1.7.3-stable-4bb3c89d
+	* Truffle: v4.0.1
 	* TestRPC: n/a
 	* ffmpeg: 3.1-static (livepeer/ffmpeg-static)
-	* livepeer: 0.1.2
+	* livepeer: 0.1.6
 	* livepeer_cli: 0.0.0
-
-Repos:
-	* go-livepeer: master (2e545787a)
-	* protocol: master (8fdec47a0)
-	* testenv: master (7c2aa5896)
 
 Documentation: https://github.com/livepeer/testenv
 ```
 
-The following file and directories are part of the `ubuntu` user’s $HOME
+The following file and directories are part of the `vagrant` user’s $HOME
 in the virtual machine:
 
 ### ~/.ethereum
@@ -134,31 +129,26 @@ the wizard on this virtual machine.  Each node has its own Geth Account
 and the first 10 characters of the Account is used to represent the node
 as subdirectories within `~/.lpdata`.
 
-### ~/.lpdata
-This directory is created and used by Livepeer nodes that are run using
-
 ### ~/.lpdev_cmds.sh
 This file is where the Livepeer local dev environment wizard lives. It
 is synced from the `dot_lpdev_cmds.sh` file in this repo during the
 Vagrant provisioning step and sourced `source $HOME/.lpdev_cmds.sh` in
 any interactive shell.
 
-You can add new commands or edit existing ones by modifying the virtual
-machine file and re-source'ing:
-
-```
-virtual-machine $ source $HOME/.lpdev_cmds.sh
-```
-
-Or modifying the host machine copy of `dot_lpdev_cmds.sh` and
-re-provisioning:
+You can add new commands or edit existing ones by modifying the host
+machine copy of `dot_lpdev_cmds.sh` and re-provisioning:
 
 ```
 host-machine $ vagrant provision
 ```
 
 ### ~/go
-This is the $GOROOT for this virtual machine.
+This is the $GOROOT for this virtual machine. This doesn't exist until you
+install software using `go get [software]`.
+
+### ~/livepeer_linux
+This directory is where the latest official release of the Livepeer node
+software lives.
 
 ### ~/src
 This is the synced folder on the virtual machine for working copies of
@@ -166,11 +156,9 @@ various project repositories checked out and stored on the host machine.
 _Changes in the virtual machine are made to the host machine and
 vice versa._
 
-The three Repos listed above are technically part of the base virtual
-machine image, but they are almost never accessible unless something
-seriously weird happens. The `~/src` directory is replaced with any
-repositories in the directory on the host machine as provided by
-environment var `$LPSRC` or the defaults (`~/src`, `..`).
+The `~/src` directory is replaced with any repositories in the directory
+on the host machine as provided by environment var `$LPSRC` or the
+defaults (`~/src`, `..`).
 
 ### Vagrant Commands
 These commands are useful for operating a virtual machine run by
