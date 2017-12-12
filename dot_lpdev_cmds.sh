@@ -463,7 +463,7 @@ function __lpdev_node_broadcaster {
     broadcasterGeth=$(geth account new --password <(echo "") | cut -d' ' -f2 | tr -cd '[:alnum:]')
     echo "Created $broadcasterGeth"
   else
-    broadcasterGeth=$(pgrep -fla "livepeer.*$broadcasterApiPort" | sed -nr 's/.*ethAccountAddr ([a-zA-Z0-9]+) .*/\1/p')
+    broadcasterGeth=$(pgrep -fla "livepeer.*$broadcasterApiPort" | sed -nr 's/.*ethAcctAddr ([a-zA-Z0-9]+) .*/\1/p')
   fi
 
   if [ -z $broadcasterGeth ]
@@ -483,20 +483,23 @@ function __lpdev_node_broadcaster {
     mkdir -p $nodeDataDir
   fi
 
+  ethKeyPath=$(ls $gethDir/keystore/*$broadcasterGeth)
   if ! $broadcasterRunning && [ -n $broadcasterGeth ]
   then
     echo "Running LivePeer broadcast node with the following command:
       $binDir -bootnode
               -controllerAddr $controllerAddress
               -datadir $nodeDataDir
-              -ethDatadir $HOME/.ethereum
-              -ethAccountAddr $broadcasterGeth
+              -ethAcctAddr $broadcasterGeth
+              -ethIpcPath $gethIPC
+              -ethKeyPath $ethKeyPath
               -monitor=false
               -rtmp $broadcasterRtmpPort
               -http $broadcasterApiPort"
 
-    $binDir -bootnode -controllerAddr $controllerAddress -datadir $nodeDataDir \
-      -ethDatadir $HOME/.ethereum -ethAccountAddr $broadcasterGeth -monitor=false -rtmp $broadcasterRtmpPort \
+    nohup $binDir -bootnode -controllerAddr $controllerAddress -datadir $nodeDataDir \
+      -ethAcctAddr $broadcasterGeth -ethIpcPath $gethIPC -ethKeyPath $ethKeyPath \
+      -monitor=false -rtmp $broadcasterRtmpPort \
       -http $broadcasterApiPort &>> $nodeDataDir/broadcaster.log &
 
     if [ $? -ne 0 ]
@@ -560,7 +563,7 @@ function __lpdev_node_transcoder {
     transcoderGeth=$(geth account new --password <(echo "") | cut -d' ' -f2 | tr -cd '[:alnum:]')
     echo "Created $transcoderGeth"
   else
-    transcoderGeth=$(pgrep -fla "livepeer.*$transcoderApiPort" | sed -nr 's/.*ethAccountAddr ([a-zA-Z0-9]+) .*/\1/p')
+    transcoderGeth=$(pgrep -fla "livepeer.*$transcoderApiPort" | sed -nr 's/.*ethAcctAddr ([a-zA-Z0-9]+) .*/\1/p')
   fi
 
   if [ -z $transcoderGeth ]
@@ -591,13 +594,15 @@ function __lpdev_node_transcoder {
     fi
   fi
 
+  ethKeyPath=$(ls $gethDir/keystore/*$transcoderGeth)
   if ! $transcoderRunning && [ -n $transcoderGeth ]
   then
     echo "Running LivePeer transcode node with the following command:
       $binDir -controllerAddr $controllerAddress
               -datadir $nodeDataDir
-              -ethDatadir $HOME/.ethereum
-              -ethAccountAddr $transcoderGeth
+              -ethAcctAddr $transcoderGeth
+              -ethIpcPath $gethIPC
+              -ethKeyPath $ethKeyPath
               -monitor=false
               -rtmp $transcoderRtmpPort
               -http $transcoderApiPort
@@ -606,8 +611,9 @@ function __lpdev_node_transcoder {
               -p 15001
               -transcoder"
 
-    $binDir -p 15001 -controllerAddr $controllerAddress -datadir $nodeDataDir \
-      -ethDatadir $HOME/.ethereum -ethAccountAddr $transcoderGeth -monitor=false -rtmp $transcoderRtmpPort \
+    nohup $binDir -p 15001 -controllerAddr $controllerAddress -datadir $nodeDataDir \
+      -ethAcctAddr $transcoderGeth -ethIpcPath $gethIPC -ethKeyPath $ethKeyPath \
+      -monitor=false -rtmp $transcoderRtmpPort \
       -http $transcoderApiPort -bootID $bootNodeId -bootAddr "/ip4/127.0.0.1/tcp/15000" \
       -transcoder &>> $nodeDataDir/transcoder.log &
 
