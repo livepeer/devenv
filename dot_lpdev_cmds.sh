@@ -130,7 +130,7 @@ function __lpdev_geth_refresh_status {
 
   if [ -e $gethIPC ]
   then
-    gethMiningAccount=$(geth attach ipc:/home/ubuntu/.ethereum/geth.ipc --exec "eth.coinbase" 2> /dev/null | grep "0x" | cut -d"x" -f2 | tr -cd "[:alnum:]")
+    gethMiningAccount=$(geth attach ipc:/home/vagrant/.ethereum/geth.ipc --exec "eth.coinbase" 2> /dev/null | grep "0x" | cut -d"x" -f2 | tr -cd "[:alnum:]")
   fi
 
   if [ -n "${gethPid}" ] && [ -n "${gethMiningAccount}" ]
@@ -165,6 +165,11 @@ function __lpdev_geth_init {
     echo "Creating miner account"
     gethMiningAccount=$(geth account new --password <(echo "") | cut -d' ' -f2 | tr -cd '[:alnum:]')
     echo "Created mining account $gethMiningAccount"
+  fi
+
+  if [ ! -d $nodeBaseDataDir ]
+  then
+    mkdir -p $nodeBaseDataDir
   fi
 
   if [ -d $gethDir/geth/chaindata ]

@@ -7,6 +7,7 @@ require 'etc'
 
 # Specify a custom local directory for project source repos.
 project_src_dirs = ENV["LPSRC"] || File.join(ENV["HOME"],"src")
+
 if !File.directory?(project_src_dirs)
   if ["reload","up"].include?(ARGV[0])
     puts "INFO: The default directory for project source files (~/src) or the
@@ -15,6 +16,7 @@ if !File.directory?(project_src_dirs)
   your project's source repos. This will be mounted in the virtual machine as
   /src."
   end
+
   project_src_dirs = ".."
 end
 
@@ -36,8 +38,8 @@ gid = Etc.getpwnam(ENV["USER"]).gid
 
 Vagrant.configure("2") do |config|
 
-  config.vm.box = "joewest/livepeer-ubuntu1604"
-  config.vm.box_version = "0.0.2"
+  config.vm.box = "livepeer/ubuntu1604"
+  config.vm.box_version = "201712.11.01"
   config.vm.hostname = "livepeer-ubuntu1604"
 
   if !bridge_network
@@ -51,30 +53,18 @@ Vagrant.configure("2") do |config|
     config.vm.network "public_network"
   end
 
-  config.ssh.username = "ubuntu"
-  config.ssh.pty = true
-
-  config.vm.synced_folder project_src_dirs, "/home/ubuntu/src", owner: "ubuntu",
-    group: "ubuntu" # , mount_options: ["uid=#{uid}", "gid=#{gid}"]
-
-  #config.vm.provision "shell", run: "always" do |s|
-  #        s.inline = "echo $USER && usermod -u #{uid} ubuntu && groupmod -g #{gid} ubuntu"
-  #end
+  config.vm.synced_folder project_src_dirs, "/home/vagrant/src"
 
   config.vm.provision "shell", inline: "sudo apt-get update"
   config.vm.provision "shell", inline: "sudo apt-get install -y bindfs"
 
   config.vm.provision "file", source: "dot_lpdev_cmds.sh", destination: "$HOME/.lpdev_cmds.sh"
-  config.vm.provision "shell", inline: "if ! grep -q lpdev_cmds.sh /home/ubuntu/.bashrc; then echo 'source $HOME/.lpdev_cmds.sh' >> /home/ubuntu/.bashrc; fi"
+  config.vm.provision "shell", inline: "if ! grep -q lpdev_cmds.sh /home/vagrant/.bashrc; then echo 'source $HOME/.lpdev_cmds.sh' >> /home/vagrant/.bashrc; fi"
 
   config.vm.provider "virtualbox" do |vb|
     # Customize the number of CPUs and amount of memory on the VM:
-    vb.cpus = 2
-    vb.gui = false
+    vb.cpus = 1
     vb.memory = 2048
-
-    vb.customize ["modifyvm", :id, "--uart1", "0x3f8", "4"]
-    vb.customize ["modifyvm", :id, "--uartmode1", "disconnected"]
   end
 
 end
