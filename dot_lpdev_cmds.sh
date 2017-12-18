@@ -439,6 +439,24 @@ function __lpdev_node_reset {
 
 }
 
+function __lpdev_node_update {
+
+  URL=$(curl -s https://api.github.com/repos/livepeer/go-livepeer/releases |jq -r ".[0].assets[].browser_download_url" | grep linux)
+
+  if [ -z $URL ]
+  then
+    echo "Couldn't find the latest Linux release ($URL return instead)"
+    return 1
+  fi
+
+  cd $HOME
+  wget $URL
+  tar -xf livepeer_linux.tar
+  rm livepeer_linux.tar
+  echo "Don't forget to restart any running nodes to use the latest release"
+
+}
+
 function __lpdev_node_broadcaster {
 
   __lpdev_node_refresh_status
@@ -674,6 +692,7 @@ function __lpdev_wizard {
   "Start & set up broadcaster node"
   "Start & set up transcoder node"
   #"Deposit tokens to node"
+  "Update livepeer and cli"
   "Destroy current environment"
   "Exit"
   )
@@ -701,7 +720,11 @@ function __lpdev_wizard {
         __lpdev_node_transcoder
         ;;
       "Deposit tokens to node")
-        echo "Coming soon";;
+        echo "Coming soon"
+        ;;
+      "Update livepeer and cli")
+        __lpdev_node_update
+        ;;
       "Destroy current environment")
         __lpdev_reset
         ;;
