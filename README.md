@@ -20,8 +20,8 @@ Install VirtualBox 5.0.x or 5.1.x: https://www.virtualbox.org/
 Clone the repo and run this command:
 
 ```
-host-machine $ git clone https://github.com/livepeer/testenv.git
-host-machine $ cd testenv
+host-machine $ git clone https://github.com/livepeer/devenv.git
+host-machine $ cd devenv
 host-machine $ vagrant up
 ```
 
@@ -114,7 +114,7 @@ Contains:
 	* livepeer: 0.1.6
 	* livepeer_cli: 0.0.0
 
-Documentation: https://github.com/livepeer/testenv
+Documentation: https://github.com/livepeer/devenv
 ```
 
 The following file and directories are part of the `vagrant` user’s $HOME
