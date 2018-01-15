@@ -501,7 +501,7 @@ function __lpdev_node_broadcaster {
     mkdir -p $nodeDataDir
   fi
 
-  ethKeyPath=$(ls $gethDir/keystore/*$broadcasterGeth)
+  ethKeystorePath=$(ls $gethDir/keystore/*$broadcasterGeth)
   if ! $broadcasterRunning && [ -n $broadcasterGeth ]
   then
     echo "Running LivePeer broadcast node with the following command:
@@ -510,13 +510,13 @@ function __lpdev_node_broadcaster {
               -datadir $nodeDataDir
               -ethAcctAddr $broadcasterGeth
               -ethIpcPath $gethIPC
-              -ethKeyPath $ethKeyPath
+              -ethKeystorePath $ethKeystorePath
               -monitor=false
               -rtmp $broadcasterRtmpPort
               -http $broadcasterApiPort"
 
     nohup $binDir -bootnode -controllerAddr $controllerAddress -datadir $nodeDataDir \
-      -ethAcctAddr $broadcasterGeth -ethIpcPath $gethIPC -ethKeyPath $ethKeyPath \
+      -ethAcctAddr $broadcasterGeth -ethIpcPath $gethIPC -ethKeystorePath $ethKeystorePath \
       -monitor=false -rtmp $broadcasterRtmpPort \
       -http $broadcasterApiPort &>> $nodeDataDir/broadcaster.log &
 
@@ -612,7 +612,7 @@ function __lpdev_node_transcoder {
     fi
   fi
 
-  ethKeyPath=$(ls $gethDir/keystore/*$transcoderGeth)
+  ethKeystorePath=$(ls $gethDir/keystore/*$transcoderGeth)
   if ! $transcoderRunning && [ -n $transcoderGeth ]
   then
     echo "Running LivePeer transcode node with the following command:
@@ -620,7 +620,7 @@ function __lpdev_node_transcoder {
               -datadir $nodeDataDir
               -ethAcctAddr $transcoderGeth
               -ethIpcPath $gethIPC
-              -ethKeyPath $ethKeyPath
+              -ethKeystorePath $ethKeystorePath
               -monitor=false
               -rtmp $transcoderRtmpPort
               -http $transcoderApiPort
@@ -630,7 +630,7 @@ function __lpdev_node_transcoder {
               -transcoder"
 
     nohup $binDir -p 15001 -controllerAddr $controllerAddress -datadir $nodeDataDir \
-      -ethAcctAddr $transcoderGeth -ethIpcPath $gethIPC -ethKeyPath $ethKeyPath \
+      -ethAcctAddr $transcoderGeth -ethIpcPath $gethIPC -ethKeystorePath $ethKeystorePath \
       -monitor=false -rtmp $transcoderRtmpPort \
       -http $transcoderApiPort -bootID $bootNodeId -bootAddr "/ip4/127.0.0.1/tcp/15000" \
       -transcoder &>> $nodeDataDir/transcoder.log &
