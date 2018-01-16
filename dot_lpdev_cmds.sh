@@ -261,7 +261,7 @@ function __lpdev_protocol_refresh_status {
   if [ -d $srcDir/protocol ]
   then
     protocolBranch=$(cd $srcDir/protocol && git branch 2> /dev/null | sed -e '/^[^*]/d' -e 's/* \(.*\)/\1/')
-    controllerAddress=$(cd $srcDir/protocol && truffle networks | grep Controller | cut -d':' -f2 | tr -cd '[:alnum:]')
+    controllerAddress=$(cd $srcDir/protocol && truffle networks | awk '/54321/{f=1;next} /TokenPools/{f=0} f' | grep Controller | cut -d':' -f2 | tr -cd '[:alnum:]')
   fi
 
 }
@@ -478,7 +478,7 @@ function __lpdev_node_broadcaster {
   if ! $broadcasterRunning
   then
     echo "Creating broadcaster account"
-    broadcasterGeth=$(geth account new --password <(echo "") | cut -d' ' -f2 | tr -cd '[:alnum:]')
+    broadcasterGeth=$(geth account new --password <(echo "pass") | cut -d' ' -f2 | tr -cd '[:alnum:]')
     echo "Created $broadcasterGeth"
   else
     broadcasterGeth=$(pgrep -fla "livepeer.*$broadcasterApiPort" | sed -nr 's/.*ethAcctAddr ([a-zA-Z0-9]+) .*/\1/p')
@@ -511,12 +511,13 @@ function __lpdev_node_broadcaster {
               -ethAcctAddr $broadcasterGeth
               -ethIpcPath $gethIPC
               -ethKeystorePath $ethKeystorePath
+              -ethPassword \"pass\"
               -monitor=false
               -rtmp $broadcasterRtmpPort
               -http $broadcasterApiPort"
 
     nohup $binDir -bootnode -controllerAddr $controllerAddress -datadir $nodeDataDir \
-      -ethAcctAddr $broadcasterGeth -ethIpcPath $gethIPC -ethKeystorePath $ethKeystorePath \
+      -ethAcctAddr $broadcasterGeth -ethIpcPath $gethIPC -ethKeystorePath $ethKeystorePath -ethPassword "pass" \
       -monitor=false -rtmp $broadcasterRtmpPort \
       -http $broadcasterApiPort &>> $nodeDataDir/broadcaster.log &
 
@@ -551,7 +552,7 @@ function __lpdev_node_broadcaster {
   echo "Requesting test tokens"
   curl -X "POST" http://localhost:$broadcasterApiPort/requestTokens
 
-  echo "Depositing 500 tokens"
+  echo "Depositing 500 Wei"
   curl -X "POST" http://localhost:$broadcasterApiPort/deposit \
     --data-urlencode "amount=500"
 
@@ -578,7 +579,7 @@ function __lpdev_node_transcoder {
   if ! $transcoderRunning
   then
     echo "Creating transcoder account"
-    transcoderGeth=$(geth account new --password <(echo "") | cut -d' ' -f2 | tr -cd '[:alnum:]')
+    transcoderGeth=$(geth account new --password <(echo "pass") | cut -d' ' -f2 | tr -cd '[:alnum:]')
     echo "Created $transcoderGeth"
   else
     transcoderGeth=$(pgrep -fla "livepeer.*$transcoderApiPort" | sed -nr 's/.*ethAcctAddr ([a-zA-Z0-9]+) .*/\1/p')
@@ -621,6 +622,7 @@ function __lpdev_node_transcoder {
               -ethAcctAddr $transcoderGeth
               -ethIpcPath $gethIPC
               -ethKeystorePath $ethKeystorePath
+              -ethPassword \"pass\"
               -monitor=false
               -rtmp $transcoderRtmpPort
               -http $transcoderApiPort
@@ -630,7 +632,7 @@ function __lpdev_node_transcoder {
               -transcoder"
 
     nohup $binDir -p 15001 -controllerAddr $controllerAddress -datadir $nodeDataDir \
-      -ethAcctAddr $transcoderGeth -ethIpcPath $gethIPC -ethKeystorePath $ethKeystorePath \
+      -ethAcctAddr $transcoderGeth -ethIpcPath $gethIPC -ethKeystorePath $ethKeystorePath -ethPassword "pass" \
       -monitor=false -rtmp $transcoderRtmpPort \
       -http $transcoderApiPort -bootID $bootNodeId -bootAddr "/ip4/127.0.0.1/tcp/15000" \
       -transcoder &>> $nodeDataDir/transcoder.log &
@@ -667,7 +669,7 @@ function __lpdev_node_transcoder {
   curl -X "POST" http://localhost:$transcoderApiPort/requestTokens
 
   echo "Activating transcoder"
-  curl -X "POST" http://localhost:$transcoderApiPort/deposit \
+  curl -X "POST" http://localhost:$transcoderApiPort/activateTranscoder\
     --data-urlencode "blockRewardCut=10&feeShare=5&pricePerSegment=1&amount=500"
 
 }
