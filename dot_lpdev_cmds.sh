@@ -503,6 +503,9 @@ function __lpdev_node_broadcaster {
     mkdir -p $nodeDataDir
   fi
 
+  echo "Sleeping for 3 secs"
+  sleep 3s
+
   ethKeystorePath=$(ls $gethDir/keystore/*$broadcasterGeth)
   if ! $broadcasterRunning && [ -n $broadcasterGeth ]
   then
@@ -550,6 +553,9 @@ function __lpdev_node_broadcaster {
   done
 
   echo ""
+
+  echo "Sleeping for 3 secs"
+  sleep 3s
 
   echo "Requesting test tokens"
   curl -X "POST" http://localhost:$broadcasterApiPort/requestTokens
@@ -615,6 +621,9 @@ function __lpdev_node_transcoder {
     fi
   fi
 
+  echo "Sleeping for 3 secs"
+  sleep 3s
+
   ethKeystorePath=$(ls $gethDir/keystore/*$transcoderGeth)
   if ! $transcoderRunning && [ -n $transcoderGeth ]
   then
@@ -666,6 +675,9 @@ function __lpdev_node_transcoder {
   done
 
   echo ""
+
+  echo "Sleeping for 3 secs"
+  sleep 3s
 
   echo "Requesting test tokens"
   curl -X "POST" http://localhost:$transcoderApiPort/requestTokens
