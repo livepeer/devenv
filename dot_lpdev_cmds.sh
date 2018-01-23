@@ -621,6 +621,11 @@ function __lpdev_node_transcoder {
   then
     mkdir -p $nodeDataDir
   fi
+  transIPFSPath=$HOME/.transcoder-ipfs-${transcoderGeth:0:10}
+  if [ ! -d $transIPFSPath ]
+  then
+    mkdir -p $transIPFSPath
+  fi
 
   bootNodePort=$(pgrep -fla "livepeer.*bootnode" | sed -nr "s/.*http ([0-9]+)( .*|$)/\1/p")
   if [ -n $bootNodePort ]
@@ -652,13 +657,14 @@ function __lpdev_node_transcoder {
               -bootID $bootNodeId \\
               -bootAddr \"/ip4/127.0.0.1/tcp/15000\" \\
               -p 15001 \\
+              -ipfsPath $transIPFSPath \\
               -transcoder"
 
     nohup $binDir -p 15001 -controllerAddr $controllerAddress -datadir $nodeDataDir \
       -ethAcctAddr $transcoderGeth -ethIpcPath $gethIPC -ethKeystorePath $ethKeystorePath -ethPassword "pass" \
       -monitor=false -rtmp $transcoderRtmpPort \
       -http $transcoderApiPort -bootID $bootNodeId -bootAddr "/ip4/127.0.0.1/tcp/15000" \
-      -transcoder &>> $nodeDataDir/transcoder.log &
+      -p 15001 -ipfsPath $transIPFSPath -transcoder &>> $nodeDataDir/transcoder.log &
 
     if [ $? -ne 0 ]
     then
@@ -735,17 +741,40 @@ function __lpdev_verifier_init {
 
 function __lpdev_verifier {
   __lpdev_verifier_init
+  __lpdev_ipfs_init
 
   echo "Making verifier address"
-  verifierGeth=$(geth account new --password <(echo "") | cut -d' ' -f2 | tr -cd '[:alnum:]')
+  verifierGeth=$(geth account new --password <(echo "pass") | cut -d' ' -f2 | tr -cd '[:alnum:]')
+  echo "Created $verifierGeth"
 
-  echo "Starting Livepeer verifier"
+  solverCMD="sudo nohup node index -a 0x$verifierGeth -c $controllerAddress -p pass &>> ./verification-solver.log &"
+  echo "Starting Livepeer verifier with:"
+  echo $solverCMD
   cd $srcDir/verification-computation-solver
-  sudo node index -a $verifierGeth -c $controllerAddress
+  sudo nohup node index -a 0x$verifierGeth -c $controllerAddress -p pass &>> ~/verification-solver.log &
   cd $OPWD
 
   #Can't really do that now.  Should add it into the CLI first.
   echo "Make sure to add verifier addr {$verifierGeth} into verifier set"
+}
+
+function __lpdev_ipfs_init {
+  echo "Checking to start IPFS"
+  if [ ! -d $HOME/.ipfs ]
+  then 
+    echo "Initializing ipfs"
+    ipfs init
+  fi
+
+
+  ipfsPort =$(pgrep -f "ipfs daemon")
+  if [ -n $ipfsPort ]
+  then 
+    echo "Starting IPFS daemon"
+    ipfs daemon
+  fi
+
+  echo "IPFS init finished"
 }
 
 function __lpdev_wizard {
