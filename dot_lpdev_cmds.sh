@@ -741,7 +741,7 @@ function __lpdev_verifier {
 
   echo "Starting Livepeer verifier"
   cd $srcDir/verification-computation-solver
-  node index -a $verifierGeth -c $controllerAddress
+  sudo node index -a $verifierGeth -c $controllerAddress
   cd $OPWD
 
   #Can't really do that now.  Should add it into the CLI first.
