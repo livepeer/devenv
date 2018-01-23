@@ -236,12 +236,12 @@ function __lpdev_geth_run {
   fi
 
   echo "Running Geth miner with the following command:
-  geth -networkid 54321
-       -rpc
-       -rpcapi 'personal,account,eth,web3,net'
-       -targetgaslimit 6700000
-       -unlock $gethMiningAccount
-       --password <(echo \"\")
+  geth -networkid 54321 \\
+       -rpc \\
+       -rpcapi 'personal,account,eth,web3,net' \\
+       -targetgaslimit 6700000 \\
+       -unlock $gethMiningAccount \\
+       --password <(echo \"\") \\
        -mine"
 
   nohup geth -networkid 54321 -rpc -rpcapi 'personal,account,eth,web3,net' -targetgaslimit 6700000 -unlock $gethMiningAccount --password <(echo "") -mine &>>$nodeBaseDataDir/geth.log &
@@ -293,7 +293,7 @@ function __lpdev_protocol_init {
     echo "Cloning github.com/livepeer/protocol into src directory"
     OPWD=$PWD
     cd $srcDir
-    git clone -b develop "https://github.com/livepeer/protocol.git"
+    git clone -b master "https://github.com/livepeer/protocol.git"
     cd $OPWD
   fi
 
@@ -509,7 +509,7 @@ function __lpdev_node_broadcaster {
   echo "Running $transferEth"
   eval $transferEth
 
-  nodeDataDir=$nodeBaseDataDir/${broadcasterGeth:0:10}
+  nodeDataDir=$nodeBaseDataDir/broadcaster-${broadcasterGeth:0:10}
   if [ ! -d $nodeDataDir ]
   then
     mkdir -p $nodeDataDir
@@ -522,15 +522,15 @@ function __lpdev_node_broadcaster {
   if ! $broadcasterRunning && [ -n $broadcasterGeth ]
   then
     echo "Running LivePeer broadcast node with the following command:
-      $binDir -bootnode
-              -controllerAddr $controllerAddress
-              -datadir $nodeDataDir
-              -ethAcctAddr $broadcasterGeth
-              -ethIpcPath $gethIPC
-              -ethKeystorePath $ethKeystorePath
-              -ethPassword \"pass\"
-              -monitor=false
-              -rtmp $broadcasterRtmpPort
+      $binDir -bootnode \\
+              -controllerAddr $controllerAddress \\
+              -datadir $nodeDataDir \\
+              -ethAcctAddr $broadcasterGeth \\
+              -ethIpcPath $gethIPC \\
+              -ethKeystorePath $ethKeystorePath \\
+              -ethPassword \"pass\" \\
+              -monitor=false \\
+              -rtmp $broadcasterRtmpPort \\
               -http $broadcasterApiPort"
 
     nohup $binDir -bootnode -controllerAddr $controllerAddress -datadir $nodeDataDir \
@@ -616,7 +616,7 @@ function __lpdev_node_transcoder {
   echo "Running $transferEth"
   eval $transferEth
 
-  nodeDataDir=$nodeBaseDataDir/${transcoderGeth:0:10}
+  nodeDataDir=$nodeBaseDataDir/transcoder-${transcoderGeth:0:10}
   if [ ! -d $nodeDataDir ]
   then
     mkdir -p $nodeDataDir
@@ -640,18 +640,18 @@ function __lpdev_node_transcoder {
   if ! $transcoderRunning && [ -n $transcoderGeth ]
   then
     echo "Running LivePeer transcode node with the following command:
-      $binDir -controllerAddr $controllerAddress
-              -datadir $nodeDataDir
-              -ethAcctAddr $transcoderGeth
-              -ethIpcPath $gethIPC
-              -ethKeystorePath $ethKeystorePath
-              -ethPassword \"pass\"
-              -monitor=false
-              -rtmp $transcoderRtmpPort
-              -http $transcoderApiPort
-              -bootID $bootNodeId
-              -bootAddr \"/ip4/localhost/tcp/15000\"
-              -p 15001
+      $binDir -controllerAddr $controllerAddress \\
+              -datadir $nodeDataDir \\
+              -ethAcctAddr $transcoderGeth \\
+              -ethIpcPath $gethIPC \\
+              -ethKeystorePath $ethKeystorePath \\
+              -ethPassword \"pass\" \\
+              -monitor=false \\
+              -rtmp $transcoderRtmpPort \\
+              -http $transcoderApiPort \\
+              -bootID $bootNodeId \\
+              -bootAddr \"/ip4/127.0.0.1/tcp/15000\" \\
+              -p 15001 \\
               -transcoder"
 
     nohup $binDir -p 15001 -controllerAddr $controllerAddress -datadir $nodeDataDir \
