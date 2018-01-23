@@ -771,7 +771,7 @@ function __lpdev_ipfs_init {
   if [ -n $ipfsPort ]
   then 
     echo "Starting IPFS daemon"
-    ipfs daemon
+    nohup ipfs daemon &
   fi
 
   echo "IPFS init finished"
