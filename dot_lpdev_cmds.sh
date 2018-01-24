@@ -288,7 +288,8 @@ function __lpdev_protocol_init {
 
   if [ -d $srcDir/protocol ]
   then
-    echo "Protocol src directory exists"
+    echo "Protocol src directory exists.  Trying to pull the latest version."
+    git pull
   else
     echo "Cloning github.com/livepeer/protocol into src directory"
     OPWD=$PWD
@@ -713,7 +714,8 @@ function __lpdev_node_transcoder {
 function __lpdev_verifier_init {
   if [ -d $srcDir/verification-computation-solver ]
   then
-    echo "Protocol src directory exists"
+    echo "Verifier src directory exists.  Trying to pull the latest version."
+    git pull
   else
     echo "Cloning github.com/livepeer/verification-computation-solver into src directory"
     OPWD=$PWD
@@ -754,8 +756,9 @@ function __lpdev_verifier {
   sudo nohup node index -a 0x$verifierGeth -c $controllerAddress -p pass &>> ~/verification-solver.log &
   cd $OPWD
 
-  #Can't really do that now.  Should add it into the CLI first.
-  echo "Make sure to add verifier addr {$verifierGeth} into verifier set"
+  #Can't really add the verifier directly now.  Should add it into the CLI first.
+  echo ""
+  echo "Make sure to add verifier addr {$verifierGeth} into verifier set via 'truffle console' + 'LivepeerVerifier.deployed().then(v => v.addSolver("$verifierGeth"))' inside $srcDir/protocol"
 }
 
 function __lpdev_ipfs_init {
@@ -767,7 +770,7 @@ function __lpdev_ipfs_init {
   fi
 
 
-  ipfsPort =$(pgrep -f "ipfs daemon")
+  ipfsPort=$(pgrep -f "ipfs daemon")
   if [ -n $ipfsPort ]
   then 
     echo "Starting IPFS daemon"
