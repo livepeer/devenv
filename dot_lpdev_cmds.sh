@@ -429,7 +429,7 @@ function __lpdev_node_refresh_status {
     transcoderRunning=false
   fi
 
-  verifierPid=$(pgrep -f "node index.js.*")
+  verifierPid=$(pgrep -f "nohup node index")
   if [ -n "{$verifierPid}" ]
   then
     verifierRunning=true
@@ -771,7 +771,7 @@ function __lpdev_ipfs_init {
 
 
   ipfsPort=$(pgrep -f "ipfs daemon")
-  if [ -n $ipfsPort ]
+  if [ -z $ipfsPort ]
   then 
     echo "Starting IPFS daemon"
     nohup ipfs daemon &
