@@ -742,23 +742,28 @@ function __lpdev_verifier_init {
 }
 
 function __lpdev_verifier {
-  __lpdev_verifier_init
-  __lpdev_ipfs_init
+  if [ -n "{$verifierPid}" ]
+  then
+    echo "Verifier is already running at $verifierPid"
+  else
+    __lpdev_verifier_init
+    __lpdev_ipfs_init
 
-  echo "Making verifier address"
-  verifierGeth=$(geth account new --password <(echo "pass") | cut -d' ' -f2 | tr -cd '[:alnum:]')
-  echo "Created $verifierGeth"
+    echo "Making verifier address"
+    verifierGeth=$(geth account new --password <(echo "pass") | cut -d' ' -f2 | tr -cd '[:alnum:]')
+    echo "Created $verifierGeth"
 
-  solverCMD="sudo nohup node index -a 0x$verifierGeth -c $controllerAddress -p pass &>> ./verification-solver.log &"
-  echo "Starting Livepeer verifier with:"
-  echo $solverCMD
-  cd $srcDir/verification-computation-solver
-  sudo nohup node index -a 0x$verifierGeth -c $controllerAddress -p pass &>> ~/verification-solver.log &
-  cd $OPWD
+    solverCMD="sudo nohup node index -a 0x$verifierGeth -c $controllerAddress -p pass &>> ./verification-solver.log &"
+    echo "Starting Livepeer verifier with:"
+    echo $solverCMD
+    cd $srcDir/verification-computation-solver
+    sudo nohup node index -a 0x$verifierGeth -c $controllerAddress -p pass &>> ~/verification-solver.log &
+    cd $OPWD
 
-  #Can't really add the verifier directly now.  Should add it into the CLI first.
-  echo ""
-  echo "Make sure to add verifier addr {$verifierGeth} into verifier set via 'truffle console' + 'LivepeerVerifier.deployed().then(v => v.addSolver("$verifierGeth"))' inside $srcDir/protocol"
+    #Can't really add the verifier directly now.  Should add it into the CLI first.
+    echo ""
+    echo "Make sure to add verifier addr {$verifierGeth} into verifier set via 'truffle console' + 'LivepeerVerifier.deployed().then(v => v.addSolver("$verifierGeth"))' inside $srcDir/protocol"
+  fi
 }
 
 function __lpdev_ipfs_init {
