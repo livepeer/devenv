@@ -32,6 +32,10 @@ transcoderPid=0
 transcoderRunning=false
 transcoderGeth=
 
+verifierPid=0
+verifierRunning=false
+verifierGeth=
+
 ##
 #
 # TODO: create separate commands
@@ -94,6 +98,7 @@ function __lpdev_status {
 
   echo "Broadcaster node is running: $broadcasterRunning ($broadcasterPid)"
   echo "Transcoder node is running: $transcoderRunning ($transcoderPid)"
+  echo "Verifier is running: $verifierRunning ($verifierPid)"
 
   echo "
 --
@@ -283,7 +288,8 @@ function __lpdev_protocol_init {
 
   if [ -d $srcDir/protocol ]
   then
-    echo "Protocol src directory exists"
+    echo "Protocol src directory exists.  Trying to pull the latest version."
+    git pull
   else
     echo "Cloning github.com/livepeer/protocol into src directory"
     OPWD=$PWD
@@ -423,6 +429,13 @@ function __lpdev_node_refresh_status {
     transcoderRunning=false
   fi
 
+  verifierPid=$(pgrep -f "nohup node index")
+  if [ -n "{$verifierPid}" ]
+  then
+    verifierRunning=true
+  else
+    verifierRunning=false
+  fi
 }
 
 function __lpdev_node_reset {
@@ -609,6 +622,11 @@ function __lpdev_node_transcoder {
   then
     mkdir -p $nodeDataDir
   fi
+  transIPFSPath=$HOME/.transcoder-ipfs-${transcoderGeth:0:10}
+  if [ ! -d $transIPFSPath ]
+  then
+    mkdir -p $transIPFSPath
+  fi
 
   bootNodePort=$(pgrep -fla "livepeer.*bootnode" | sed -nr "s/.*http ([0-9]+)( .*|$)/\1/p")
   if [ -n $bootNodePort ]
@@ -640,13 +658,14 @@ function __lpdev_node_transcoder {
               -bootID $bootNodeId \\
               -bootAddr \"/ip4/127.0.0.1/tcp/15000\" \\
               -p 15001 \\
+              -ipfsPath $transIPFSPath \\
               -transcoder"
 
     nohup $binDir -p 15001 -controllerAddr $controllerAddress -datadir $nodeDataDir \
       -ethAcctAddr $transcoderGeth -ethIpcPath $gethIPC -ethKeystorePath $ethKeystorePath -ethPassword "pass" \
       -monitor=false -rtmp $transcoderRtmpPort \
       -http $transcoderApiPort -bootID $bootNodeId -bootAddr "/ip4/127.0.0.1/tcp/15000" \
-      -transcoder &>> $nodeDataDir/transcoder.log &
+      -p 15001 -ipfsPath $transIPFSPath -transcoder &>> $nodeDataDir/transcoder.log &
 
     if [ $? -ne 0 ]
     then
@@ -682,10 +701,88 @@ function __lpdev_node_transcoder {
   echo "Requesting test tokens"
   curl -X "POST" http://localhost:$transcoderApiPort/requestTokens
 
-  echo "Activating transcoder"
-  curl -X "POST" http://localhost:$transcoderApiPort/activateTranscoder\
-    --data-urlencode "blockRewardCut=10&feeShare=5&pricePerSegment=1&amount=500"
+  echo "Initializing current round"
+  curl -X "POST" http://localhost:$transcoderApiPort/initializeRound
 
+  echo "Activating transcoder"
+  curl -d "blockRewardCut=10&feeShare=5&pricePerSegment=1&amount=500" \
+    -H "Content-Type: application/x-www-form-urlencoded" \
+    -X "POST" http://localhost:$transcoderApiPort/activateTranscoder\
+
+}
+
+function __lpdev_verifier_init {
+  if [ -d $srcDir/verification-computation-solver ]
+  then
+    echo "Verifier src directory exists.  Trying to pull the latest version."
+    git pull
+  else
+    echo "Cloning github.com/livepeer/verification-computation-solver into src directory"
+    OPWD=$PWD
+    cd $srcDir
+    git clone "https://github.com/livepeer/verification-computation-solver.git"
+    cd $OPWD
+  fi
+
+  ##
+  # Update npm
+  ##
+
+  listModules=($(ls $srcDir/verification-computation-solver/node_modules))
+  if [ -d $srcDir/verification-computation-solver/node_modules ] && [ ${#listModules[@]} -gt 0 ]
+  then
+    echo "Npm packages already installed"
+  else
+    echo "Running \`npm install\`"
+    OPWD=$PWD
+    cd $srcDir/verification-computation-solver
+    npm install
+    cd $OPWD
+  fi
+}
+
+function __lpdev_verifier {
+  if [ -n "{$verifierPid}" ]
+  then
+    echo "Verifier is already running at $verifierPid"
+  else
+    __lpdev_verifier_init
+    __lpdev_ipfs_init
+
+    echo "Making verifier address"
+    verifierGeth=$(geth account new --password <(echo "pass") | cut -d' ' -f2 | tr -cd '[:alnum:]')
+    echo "Created $verifierGeth"
+
+    solverCMD="sudo nohup node index -a 0x$verifierGeth -c $controllerAddress -p pass &>> ./verification-solver.log &"
+    echo "Starting Livepeer verifier with:"
+    echo $solverCMD
+    cd $srcDir/verification-computation-solver
+    sudo nohup node index -a 0x$verifierGeth -c $controllerAddress -p pass &>> ~/verification-solver.log &
+    cd $OPWD
+
+    #Can't really add the verifier directly now.  Should add it into the CLI first.
+    echo ""
+    echo "Make sure to add verifier addr {$verifierGeth} into verifier set via 'truffle console' + 'LivepeerVerifier.deployed().then(v => v.addSolver("$verifierGeth"))' inside $srcDir/protocol"
+  fi
+}
+
+function __lpdev_ipfs_init {
+  echo "Checking to start IPFS"
+  if [ ! -d $HOME/.ipfs ]
+  then 
+    echo "Initializing ipfs"
+    ipfs init
+  fi
+
+
+  ipfsPort=$(pgrep -f "ipfs daemon")
+  if [ -z $ipfsPort ]
+  then 
+    echo "Starting IPFS daemon"
+    nohup ipfs daemon &
+  fi
+
+  echo "IPFS init finished"
 }
 
 function __lpdev_wizard {
@@ -708,6 +805,7 @@ function __lpdev_wizard {
   "Start & set up broadcaster node"
   "Start & set up transcoder node"
   #"Deposit tokens to node"
+  "Start & set up verifier"
   "Update livepeer and cli"
   "Destroy current environment"
   "Exit"
@@ -734,6 +832,9 @@ function __lpdev_wizard {
         ;;
       "Start & set up transcoder node")
         __lpdev_node_transcoder
+        ;;
+      "Start & set up verifier")
+        __lpdev_verifier
         ;;
       "Deposit tokens to node")
         echo "Coming soon"

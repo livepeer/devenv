@@ -31,6 +31,7 @@ default_nodes = ENV["NODES"] || 5
 # Livepeer RTMP and HTTP ports used by the guest VM.
 rtmp_port = 1935
 api_port = 8935
+ipfs_port = 4001
 
 # Get current user pid and gid
 uid = Etc.getpwnam(ENV["USER"]).uid
@@ -49,15 +50,21 @@ Vagrant.configure("2") do |config|
       rtmp_port += 1
       api_port += 1
     end
+
+    config.vm.network "forwarded_port", guest: ipfs_port, host: ipfs_port
   else
     config.vm.network "public_network"
   end
 
   config.vm.synced_folder project_src_dirs, "/home/vagrant/src"
 
+  config.vm.provision "shell", inline: "curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -"
+  config.vm.provision "shell", inline: "sudo add-apt-repository \"deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable\""
   config.vm.provision "shell", inline: "sudo apt-get update"
   config.vm.provision "shell", inline: "sudo apt-get install -y bindfs"
   config.vm.provision "shell", inline: "sudo apt-get install -y jq"
+  config.vm.provision "shell", inline: "sudo apt-get install unzip"
+  config.vm.provision "shell", inline: "sudo apt-get install -y docker-ce"
 
   config.vm.provision "file", source: "dot_lpdev_cmds.sh", destination: "$HOME/.lpdev_cmds.sh"
   config.vm.provision "shell", inline: "if ! grep -q lpdev_cmds.sh /home/vagrant/.bashrc; then echo 'source $HOME/.lpdev_cmds.sh' >> /home/vagrant/.bashrc; fi"
@@ -75,8 +82,8 @@ Vagrant.configure("2") do |config|
 
   config.vm.provider "virtualbox" do |vb|
     # Customize the number of CPUs and amount of memory on the VM:
-    vb.cpus = 1
-    vb.memory = 2048
+    vb.cpus = 2
+    vb.memory = 4096
   end
 
 end
