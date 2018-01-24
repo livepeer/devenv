@@ -733,7 +733,7 @@ function __lpdev_verifier_init {
   else
     echo "Running \`npm install\`"
     OPWD=$PWD
-    cd $srcDir/protocol
+    cd $srcDir/verification-computation-solver
     npm install
     cd $OPWD
   fi
