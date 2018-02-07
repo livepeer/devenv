@@ -58,6 +58,7 @@ Vagrant.configure("2") do |config|
   end
 
   config.vm.synced_folder project_src_dirs, "/home/vagrant/src", create: true
+  config.vm.synced_folder File.join(project_src_dirs,"go"), "/home/vagrant/go", create: true
 
   config.vm.provision "shell", inline: "curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -"
   config.vm.provision "shell", inline: "sudo add-apt-repository \"deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable\""

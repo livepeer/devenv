@@ -86,10 +86,9 @@ Transcoder node is running: true (21182)
 --
 
 What would you like to do?
-1) Display status                      5) Start & set up transcoder node
-2) Set up & start Geth local network   6) Destroy current environmentonment
-3) Deploy/overwrite protocol contracts 7) Exit
-4) Start & set up broadcaster node
+1) Display status			  4) Start & set up broadcaster node	   7) Update livepeer and cli		   10) Destroy current environment
+2) Set up & start Geth local network	  5) Start & set up transcoder node	   8) Install FFmpeg			   11) Exit
+3) Deploy/overwrite protocol contracts	  6) Start & set up verifier		   9) Rebuild FFmpeg
 ```
 
 _The Current Status values above are specific to your environment. Yours
@@ -144,7 +143,8 @@ host-machine $ vagrant provision
 
 ### ~/go
 This is the $GOROOT for this virtual machine. This doesn't exist until you
-install software using `go get [software]`.
+install software using `go get [software]`.  _Changes to this directory are 
+made to the host machine and vice versa in `$LPSRC/go_src`._
 
 ### ~/livepeer_linux
 This directory is where the latest official release of the Livepeer node
