@@ -116,3 +116,16 @@ rm -f /home/vagrant/.bash_history
 ```
 sudo find /var/log -type f -exec truncate -s 0 {} \;
 ```
+
+#### Packaging the box
+
+```
+vagrant package --base livepeer-ubuntu1604
+```
+
+#### Run the packaged box
+```
+vagrant box add ...
+vagrant init ...
+vagrant up
+```
