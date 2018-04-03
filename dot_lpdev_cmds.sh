@@ -381,6 +381,43 @@ EOF
 
   fi
 
+  if grep -q ${gethMiningAccount:="none"} $srcDir/protocol/scripts/setVerificationCodeHash.js
+  then
+    echo "Local dev version of $srcDir/protocol/scripts/setVerificationCodeHash.js already exists"
+  else
+    echo "Installing local dev version of $srcDir/protocol/scripts/setVerificationCodeHash.js"
+
+    cat <<EOF > $srcDir/protocol/scripts/setVerificationCodeHash.js
+const LivepeerVerifier = artifacts.require("LivepeerVerifier")
+
+module.exports = async () => {
+    const codeHash = process.argv[4]
+    const verifier = await LivepeerVerifier.deployed()
+
+    await verifier.setVerificationCodeHash(codeHash)
+}
+EOF
+
+  fi
+
+  if grep -q ${gethMiningAccount:="none"} $srcDir/protocol/scripts/unpauseController.js
+  then
+    echo "Local dev version of $srcDir/protocol/scripts/unpauseController.js"
+  else
+    echo "Installing local dev version of $srcDir/protocol/scripts/unpauseController.js"
+
+    cat <<EOF > $srcDir/protocol/scripts/unpauseController.js
+const Controller = artifacts.require("Controller")
+
+module.exports = async () => {
+    const controller = await Controller.deployed()
+    await controller.unpause()
+}
+EOF
+
+  fi
+
+
   ##
   # Update npm
   ##
@@ -424,8 +461,15 @@ function __lpdev_protocol_deploy {
 
   OPWD=$PWD
   cd $srcDir/protocol
-  echo "Running \`truffle migrate --reset --network lpTestNet\`"
-  truffle migrate --reset --network lpTestNet
+  migrateCmd="truffle migrate --reset --network lpTestNet"
+  echo "Running $migrateCmd"
+  eval $migrateCmd
+  unpauseCmd="truffle exec scripts/unpauseController.js"
+  echo "Running $unpauseCmd"
+  eval $unpauseCmd
+  setVerificationCodeHashCmd="truffle exec scripts/setVerificationCodeHash.js QmQizrXQZsyocabJt3NvRaCYw6gTFeu28JRpjserZMxFYs"
+  echo "Running $setVerificationCodeHashCmd"
+  eval $setVerificationCodeHashCmd
   cd $OPWD
 
   if $redeployed
@@ -503,7 +547,8 @@ function __lpdev_node_update {
 
   wget_args=$1
 
-  URL=$(curl -s https://api.github.com/repos/livepeer/go-livepeer/releases |jq -r ".[0].assets[].browser_download_url" | grep linux)
+  # URL=$(curl -s https://api.github.com/repos/livepeer/go-livepeer/releases |jq -r ".[0].assets[].browser_download_url" | grep linux)
+  URL=https://github.com/livepeer/go-livepeer/releases/download/0.1.15/livepeer_linux.tar
 
   if [ -z $URL ]
   then
@@ -578,13 +623,14 @@ function __lpdev_node_broadcaster {
               -ethKeystorePath $ethKeystorePath \\
               -ethPassword \"pass\" \\
               -monitor=false \\
+              -gasLimit 4000000 \\
               -rtmp $broadcasterRtmpPort \\
-              -http $broadcasterApiPort"
+              -http $broadcasterApiPort" \\
 
     nohup $binDir -bootnode -controllerAddr $controllerAddress -datadir $nodeDataDir \
       -ethAcctAddr $broadcasterGeth -ethIpcPath $gethIPC -ethKeystorePath $ethKeystorePath -ethPassword "pass" \
       -monitor=false -rtmp $broadcasterRtmpPort \
-      -http $broadcasterApiPort &>> $nodeDataDir/broadcaster.log &
+      -http $broadcasterApiPort -gasLimit 4000000 &>> $nodeDataDir/broadcaster.log &
 
     if [ $? -ne 0 ]
     then
@@ -706,13 +752,14 @@ function __lpdev_node_transcoder {
               -bootAddr \"/ip4/127.0.0.1/tcp/15000\" \\
               -p 15001 \\
               -ipfsPath $transIPFSPath \\
+              -gasLimit 4000000 \\
               -transcoder"
 
     nohup $binDir -p 15001 -controllerAddr $controllerAddress -datadir $nodeDataDir \
       -ethAcctAddr $transcoderGeth -ethIpcPath $gethIPC -ethKeystorePath $ethKeystorePath -ethPassword "pass" \
       -monitor=false -rtmp $transcoderRtmpPort \
       -http $transcoderApiPort -bootID $bootNodeId -bootAddr "/ip4/127.0.0.1/tcp/15000" \
-      -p 15001 -ipfsPath $transIPFSPath -transcoder &>> $nodeDataDir/transcoder.log &
+      -p 15001 -ipfsPath $transIPFSPath -transcoder -gasLimit 4000000 &>> $nodeDataDir/transcoder.log &
 
     if [ $? -ne 0 ]
     then
@@ -825,6 +872,7 @@ function __lpdev_verifier {
     echo "Running $transferEth"
     eval $transferEth
 
+    echo "Whitelisting solver $verifierGeth"
     OPWD=$PWD
     cd $srcDir/protocol
     addSolver="truffle exec scripts/addSolver.js 0x$verifierGeth"
@@ -841,7 +889,7 @@ function __lpdev_verifier {
 }
 
 function __lpdev_ipfs_init {
-  IPFS_PATH=$HOME/.verifierIpfs
+  export IPFS_PATH=$HOME/.verifierIpfs
 
   echo "Checking to start IPFS"
   if [ ! -d $IPFS_PATH ]
