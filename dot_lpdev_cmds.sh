@@ -36,6 +36,9 @@ verifierPid=0
 verifierRunning=false
 verifierGeth=
 
+verifierIPFSPid=0
+verifierIPFSRunning=false
+
 ##
 #
 # TODO: create separate commands
@@ -99,6 +102,7 @@ function __lpdev_status {
   echo "Broadcaster node is running: $broadcasterRunning ($broadcasterPid)"
   echo "Transcoder node is running: $transcoderRunning ($transcoderPid)"
   echo "Verifier is running: $verifierRunning ($verifierPid)"
+  echo "Verifier IPFS node is running: $verifierIPFSRunning ($verifierIPFSPid)"
 
   echo "
 --
@@ -358,6 +362,62 @@ EOF
 
   fi
 
+  if grep -q ${gethMiningAccount:-"none"} $srcDir/protocol/scripts/addSolver.js
+  then
+    echo "Local dev version of $srcDir/protocol/scripts/addSolver.js already exists"
+  else
+    echo "Installing local dev version of $srcDir/protocol/scripts/addSolver.js"
+
+    cat <<EOF > $srcDir/protocol/scripts/addSolver.js
+const LivepeerVerifier = artifacts.require("LivepeerVerifier")
+
+module.exports = async () => {
+    const newSolver = process.argv[4]
+    const verifier = await LivepeerVerifier.deployed()
+
+    await verifier.addSolver(newSolver)
+}
+EOF
+
+  fi
+
+  if grep -q ${gethMiningAccount:="none"} $srcDir/protocol/scripts/setVerificationCodeHash.js
+  then
+    echo "Local dev version of $srcDir/protocol/scripts/setVerificationCodeHash.js already exists"
+  else
+    echo "Installing local dev version of $srcDir/protocol/scripts/setVerificationCodeHash.js"
+
+    cat <<EOF > $srcDir/protocol/scripts/setVerificationCodeHash.js
+const LivepeerVerifier = artifacts.require("LivepeerVerifier")
+
+module.exports = async () => {
+    const codeHash = process.argv[4]
+    const verifier = await LivepeerVerifier.deployed()
+
+    await verifier.setVerificationCodeHash(codeHash)
+}
+EOF
+
+  fi
+
+  if grep -q ${gethMiningAccount:="none"} $srcDir/protocol/scripts/unpauseController.js
+  then
+    echo "Local dev version of $srcDir/protocol/scripts/unpauseController.js"
+  else
+    echo "Installing local dev version of $srcDir/protocol/scripts/unpauseController.js"
+
+    cat <<EOF > $srcDir/protocol/scripts/unpauseController.js
+const Controller = artifacts.require("Controller")
+
+module.exports = async () => {
+    const controller = await Controller.deployed()
+    await controller.unpause()
+}
+EOF
+
+  fi
+
+
   ##
   # Update npm
   ##
@@ -401,8 +461,15 @@ function __lpdev_protocol_deploy {
 
   OPWD=$PWD
   cd $srcDir/protocol
-  echo "Running \`truffle migrate --reset --network lpTestNet\`"
-  truffle migrate --reset --network lpTestNet
+  migrateCmd="truffle migrate --reset --network lpTestNet"
+  echo "Running $migrateCmd"
+  eval $migrateCmd
+  unpauseCmd="truffle exec scripts/unpauseController.js"
+  echo "Running $unpauseCmd"
+  eval $unpauseCmd
+  setVerificationCodeHashCmd="truffle exec scripts/setVerificationCodeHash.js QmQizrXQZsyocabJt3NvRaCYw6gTFeu28JRpjserZMxFYs"
+  echo "Running $setVerificationCodeHashCmd"
+  eval $setVerificationCodeHashCmd
   cd $OPWD
 
   if $redeployed
@@ -430,17 +497,35 @@ function __lpdev_node_refresh_status {
   fi
 
   verifierPid=$(pgrep -f "nohup node index")
-  if [ -n "{$verifierPid}" ]
+  if [ -n "${verifierPid}" ]
   then
     verifierRunning=true
   else
     verifierRunning=false
+  fi
+
+  verifierIPFSPid=$(pgrep -f "ipfs daemon")
+  if [ -n "${verifierIPFSPid}" ]
+  then
+    verifierIPFSRunning=true
+  else
+    verifierIPFSRunning=false
   fi
 }
 
 function __lpdev_node_reset {
 
   pkill -9 livepeer
+
+  if [ -n "${verifierPid}" ]
+  then
+    kill -9 $verifierPid
+  fi
+
+  if [ -n "${verifierIPFSPid}" ]
+  then
+    kill -9 $verifierIPFSPid
+  fi
 
   unset broadcasterPid
   broadcasterRunning=false
@@ -450,13 +535,20 @@ function __lpdev_node_reset {
   transcoderRunning=false
   unset transcoderGeth
 
+  unset verifierPid
+  verifierRunning=false
+  unset verifierGeth
+
+  unset verifierIPFSPid
+  verifierIPFSRunning=false
 }
 
 function __lpdev_node_update {
 
   wget_args=$1
 
-  URL=$(curl -s https://api.github.com/repos/livepeer/go-livepeer/releases |jq -r ".[0].assets[].browser_download_url" | grep linux)
+  # URL=$(curl -s https://api.github.com/repos/livepeer/go-livepeer/releases |jq -r ".[0].assets[].browser_download_url" | grep linux)
+  URL=https://github.com/livepeer/go-livepeer/releases/download/0.1.15/livepeer_linux.tar
 
   if [ -z $URL ]
   then
@@ -531,13 +623,14 @@ function __lpdev_node_broadcaster {
               -ethKeystorePath $ethKeystorePath \\
               -ethPassword \"pass\" \\
               -monitor=false \\
+              -gasLimit 4000000 \\
               -rtmp $broadcasterRtmpPort \\
-              -http $broadcasterApiPort"
+              -http $broadcasterApiPort" \\
 
     nohup $binDir -bootnode -controllerAddr $controllerAddress -datadir $nodeDataDir \
       -ethAcctAddr $broadcasterGeth -ethIpcPath $gethIPC -ethKeystorePath $ethKeystorePath -ethPassword "pass" \
       -monitor=false -rtmp $broadcasterRtmpPort \
-      -http $broadcasterApiPort &>> $nodeDataDir/broadcaster.log &
+      -http $broadcasterApiPort -gasLimit 4000000 &>> $nodeDataDir/broadcaster.log &
 
     if [ $? -ne 0 ]
     then
@@ -659,13 +752,14 @@ function __lpdev_node_transcoder {
               -bootAddr \"/ip4/127.0.0.1/tcp/15000\" \\
               -p 15001 \\
               -ipfsPath $transIPFSPath \\
+              -gasLimit 4000000 \\
               -transcoder"
 
     nohup $binDir -p 15001 -controllerAddr $controllerAddress -datadir $nodeDataDir \
       -ethAcctAddr $transcoderGeth -ethIpcPath $gethIPC -ethKeystorePath $ethKeystorePath -ethPassword "pass" \
       -monitor=false -rtmp $transcoderRtmpPort \
       -http $transcoderApiPort -bootID $bootNodeId -bootAddr "/ip4/127.0.0.1/tcp/15000" \
-      -p 15001 -ipfsPath $transIPFSPath -transcoder &>> $nodeDataDir/transcoder.log &
+      -p 15001 -ipfsPath $transIPFSPath -transcoder -gasLimit 4000000 &>> $nodeDataDir/transcoder.log &
 
     if [ $? -ne 0 ]
     then
@@ -742,16 +836,48 @@ function __lpdev_verifier_init {
 }
 
 function __lpdev_verifier {
-  if [ -n "{$verifierPid}" ]
+
+  __lpdev_node_refresh_status
+
+  if $verifierIPFSRunning
   then
-    echo "Verifier is already running at $verifierPid"
+     echo "Verifier IPFS node is already running at ($verifierIPFSPid)"
   else
-    __lpdev_verifier_init
     __lpdev_ipfs_init
+  fi
+
+  __lpdev_node_refresh_status
+
+  if $verifierRunning
+  then
+    echo "Verifier is already running at ($verifierPid)"
+  else
+    __lpdev_geth_refresh_status
+    __lpdev_protocol_refresh_status
+
+    if ! $gethRunning || ! $verifierIPFSRunning || ! $protocolBuilt || [ -z ${controllerAddress} ]
+    then
+      echo "Geth must be running, IPFS node must be running & protocol must be deployed to run a verifier node"
+      return 1
+    fi
+
+    __lpdev_verifier_init
 
     echo "Making verifier address"
     verifierGeth=$(geth account new --password <(echo "pass") | cut -d' ' -f2 | tr -cd '[:alnum:]')
     echo "Created $verifierGeth"
+
+    echo "Transferring funds to $verifierGeth"
+    transferEth="geth attach ipc:/home/vagrant/.ethereum/geth.ipc --exec 'eth.sendTransaction({from: \"$gethMiningAccount\", to: \"$verifierGeth\", value: web3.toWei(1000000, \"ether\")})'"
+    echo "Running $transferEth"
+    eval $transferEth
+
+    echo "Whitelisting solver $verifierGeth"
+    OPWD=$PWD
+    cd $srcDir/protocol
+    addSolver="truffle exec scripts/addSolver.js 0x$verifierGeth"
+    echo "Running $addSolver"
+    eval $addSolver
 
     solverCMD="sudo nohup node index -a 0x$verifierGeth -c $controllerAddress -p pass &>> ./verification-solver.log &"
     echo "Starting Livepeer verifier with:"
@@ -759,28 +885,23 @@ function __lpdev_verifier {
     cd $srcDir/verification-computation-solver
     sudo nohup node index -a 0x$verifierGeth -c $controllerAddress -p pass &>> ~/verification-solver.log &
     cd $OPWD
-
-    #Can't really add the verifier directly now.  Should add it into the CLI first.
-    echo ""
-    echo "Make sure to add verifier addr {$verifierGeth} into verifier set via 'truffle console' + 'LivepeerVerifier.deployed().then(v => v.addSolver("$verifierGeth"))' inside $srcDir/protocol"
   fi
 }
 
 function __lpdev_ipfs_init {
+  export IPFS_PATH=$HOME/.verifierIpfs
+
   echo "Checking to start IPFS"
-  if [ ! -d $HOME/.ipfs ]
-  then 
+  if [ ! -d $IPFS_PATH ]
+  then
     echo "Initializing ipfs"
     ipfs init
   fi
 
-
-  ipfsPort=$(pgrep -f "ipfs daemon")
-  if [ -z $ipfsPort ]
-  then 
-    echo "Starting IPFS daemon"
-    nohup ipfs daemon &
-  fi
+  echo "Starting IPFS daemon"
+  nohup ipfs daemon &>> ~/verification-solver-ipfs.log &
+  # Make sure daemon has started
+  sleep 10
 
   echo "IPFS init finished"
 }
