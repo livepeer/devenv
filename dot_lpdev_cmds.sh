@@ -547,8 +547,7 @@ function __lpdev_node_update {
 
   wget_args=$1
 
-  # URL=$(curl -s https://api.github.com/repos/livepeer/go-livepeer/releases |jq -r ".[0].assets[].browser_download_url" | grep linux)
-  URL=https://github.com/livepeer/go-livepeer/releases/download/0.1.15/livepeer_linux.tar
+  URL=$(curl -s https://api.github.com/repos/livepeer/go-livepeer/releases |jq -r ".[0].assets[].browser_download_url" | grep linux)
 
   if [ -z $URL ]
   then
