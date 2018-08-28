@@ -31,10 +31,12 @@ default_nodes = ENV["NODES"] || 5
 
 # Livepeer RTMP and HTTP ports used by the guest VM.
 rtmp_port = 1935
-api_port = 8935
+lp_rpc_port = 8935
+cli_port = 7935
 ipfs_port = 4001
 js_port = 3000
-rpc_port = 8545
+geth_port = 8545
+ws_port = 8546
 
 # Get current user pid and gid
 uid = Etc.getpwnam(ENV["USER"]).uid
@@ -48,15 +50,17 @@ Vagrant.configure("2") do |config|
 
   if !bridge_network
     default_nodes.times do
-      config.vm.network "forwarded_port", guest: rtmp_port, host: rtmp_port
-      config.vm.network "forwarded_port", guest: api_port, host: api_port
-      rtmp_port += 1
-      api_port += 1
+      config.vm.network "forwarded_port", guest: lp_rpc_port, host: lp_rpc_port
+      config.vm.network "forwarded_port", guest: cli_port, host: cli_port
+      lp_rpc_port += 1
+      cli_port += 1
     end
 
+    config.vm.network "forwarded_port", guest: rtmp_port, host: rtmp_port
     config.vm.network "forwarded_port", guest: ipfs_port, host: ipfs_port
     config.vm.network "forwarded_port", guest: js_port, host: js_port
-    config.vm.network "forwarded_port", guest: rpc_port, host: rpc_port
+    config.vm.network "forwarded_port", guest: geth_port, host: geth_port
+    config.vm.network "forwarded_port", guest: ws_port, host: ws_port
   else
     config.vm.network "public_network"
   end
