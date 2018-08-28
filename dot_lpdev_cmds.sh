@@ -20,14 +20,18 @@ protocolBuilt=false
 protocolBranch="repo not found"
 controllerAddress=
 
-broadcasterRtmpPort=1935
-broadcasterApiPort=8935
+broadcasterCliPort=7935
+broadcasterRtmpAddr=0.0.0.0:1935
+broadcasterHttpAddr=0.0.0.0:8935
+broadcasterCliAddr=0.0.0.0:$broadcasterCliPort
 broadcasterPid=0
 broadcasterRunning=false
 broadcasterGeth=
 
-transcoderRtmpPort=1936
-transcoderApiPort=8936
+transcoderCliPort=7936
+transcoderServiceAddr=127.0.0.1:8936
+transcoderHttpAddr=0.0.0.0:8936
+transcoderCliAddr=0.0.0.0:$transcoderCliPort
 transcoderPid=0
 transcoderRunning=false
 transcoderGeth=
@@ -480,7 +484,7 @@ function __lpdev_protocol_deploy {
 
 function __lpdev_node_refresh_status {
 
-  broadcasterPid=$(pgrep -f "livepeer.*$broadcasterApiPort")
+  broadcasterPid=$(pgrep -f "livepeer.*$broadcasterCliAddr")
   if [ -n "${broadcasterPid}" ]
   then
     broadcasterRunning=true
@@ -488,7 +492,7 @@ function __lpdev_node_refresh_status {
     broadcasterRunning=false
   fi
 
-  transcoderPid=$(pgrep -f "livepeer.*$transcoderApiPort")
+  transcoderPid=$(pgrep -f "livepeer.*$transcoderCliAddr")
   if [ -n "${transcoderPid}" ]
   then
     transcoderRunning=true
@@ -614,8 +618,7 @@ function __lpdev_node_broadcaster {
   if ! $broadcasterRunning && [ -n $broadcasterGeth ]
   then
     echo "Running LivePeer broadcast node with the following command:
-      $binDir -bootIDs "" -bootAddrs "" \\
-              -controllerAddr $controllerAddress \\
+      $binDir -controllerAddr $controllerAddress \\
               -datadir $nodeDataDir \\
               -ethAcctAddr $broadcasterGeth \\
               -ethIpcPath $gethIPC \\
@@ -623,13 +626,14 @@ function __lpdev_node_broadcaster {
               -ethPassword \"pass\" \\
               -monitor=false \\
               -gasLimit 4000000 \\
-              -rtmp $broadcasterRtmpPort \\
-              -http $broadcasterApiPort" \\
+              -rtmpAddr $broadcasterRtmpAddr \\
+              -httpAddr $broadcasterHttpAddr \\
+              -cliAddr $broadcasterCliAddr "
 
-    nohup $binDir -bootIDs "" -bootAddrs "" -controllerAddr $controllerAddress -datadir $nodeDataDir \
+    nohup $binDir -controllerAddr $controllerAddress -datadir $nodeDataDir \
       -ethAcctAddr $broadcasterGeth -ethIpcPath $gethIPC -ethKeystorePath $ethKeystorePath -ethPassword "pass" \
-      -monitor=false -rtmp $broadcasterRtmpPort \
-      -http $broadcasterApiPort -gasLimit 4000000 &>> $nodeDataDir/broadcaster.log &
+      -monitor=false -rtmpAddr $broadcasterRtmpAddr -httpAddr $broadcasterHttpAddr \
+      -cliAddr $broadcasterCliAddr -gasLimit 4000000 &>> $nodeDataDir/broadcaster.log &
 
     if [ $? -ne 0 ]
     then
@@ -645,7 +649,7 @@ function __lpdev_node_broadcaster {
   # Wait for the node's webserver to start
   echo -n "Attempting to connect to the LivePeer broadcast node webserver"
   attempts=15
-  while ! nc -z localhost $broadcasterApiPort
+  while ! nc -z localhost $broadcasterCliPort
   do
     if [ $attempts -eq 0 ]
     then
@@ -663,10 +667,10 @@ function __lpdev_node_broadcaster {
   sleep 3s
 
   echo "Requesting test tokens"
-  curl -X "POST" http://localhost:$broadcasterApiPort/requestTokens
+  curl -X "POST" http://localhost:$broadcasterCliPort/requestTokens
 
   echo "Depositing 500 Wei"
-  curl -X "POST" http://localhost:$broadcasterApiPort/deposit \
+  curl -X "POST" http://localhost:$broadcasterCliPort/deposit \
     --data-urlencode "amount=500"
 
 }
@@ -720,17 +724,6 @@ function __lpdev_node_transcoder {
     mkdir -p $transIPFSPath
   fi
 
-  bootNodePort=$(pgrep -fla "livepeer.*bootnode" | sed -nr "s/.*http ([0-9]+)( .*|$)/\1/p")
-  if [ -n $bootNodePort ]
-  then
-    bootNodeId=$(curl http://localhost:$bootNodePort/nodeID 2> /dev/null)
-    if [ -z $bootNodeId ]
-    then
-      echo "Could not find a boot node id (make sure you're running a node with the -bootnode flag)"
-      return 1
-    fi
-  fi
-
   echo "Sleeping for 3 secs"
   sleep 3s
 
@@ -745,20 +738,17 @@ function __lpdev_node_transcoder {
               -ethKeystorePath $ethKeystorePath \\
               -ethPassword \"pass\" \\
               -monitor=false \\
-              -rtmp $transcoderRtmpPort \\
-              -http $transcoderApiPort \\
-              -bootID $bootNodeId \\
-              -bootAddr \"/ip4/127.0.0.1/tcp/15000\" \\
-              -p 15001 \\
+              -serviceAddr $transcoderServiceAddr \\
+              -httpAddr $transcoderHttpAddr \\
+              -cliAddr $transcoderCliAddr \\
               -ipfsPath $transIPFSPath \\
               -gasLimit 4000000 \\
               -transcoder"
 
-    nohup $binDir -p 15001 -controllerAddr $controllerAddress -datadir $nodeDataDir \
+    nohup $binDir -controllerAddr $controllerAddress -datadir $nodeDataDir \
       -ethAcctAddr $transcoderGeth -ethIpcPath $gethIPC -ethKeystorePath $ethKeystorePath -ethPassword "pass" \
-      -monitor=false -rtmp $transcoderRtmpPort \
-      -http $transcoderApiPort -bootID $bootNodeId -bootAddr "/ip4/127.0.0.1/tcp/15000" \
-      -p 15001 -ipfsPath $transIPFSPath -transcoder -gasLimit 4000000 &>> $nodeDataDir/transcoder.log &
+      -monitor=false -serviceAddr $transcoderServiceAddr -httpAddr $transcoderHttpAddr \
+      -cliAddr $transcoderCliAddr -ipfsPath $transIPFSPath -transcoder &>> $nodeDataDir/transcoder.log &
 
     if [ $? -ne 0 ]
     then
@@ -774,7 +764,7 @@ function __lpdev_node_transcoder {
   # Wait for the node's webserver to start
   echo -n "Attempting to connect to the LivePeer transcoder node webserver"
   attempts=15
-  while ! nc -z localhost $transcoderApiPort
+  while ! nc -z localhost $transcoderCliPort
   do
     if [ $attempts -eq 0 ]
     then
@@ -792,15 +782,15 @@ function __lpdev_node_transcoder {
   sleep 3s
 
   echo "Requesting test tokens"
-  curl -X "POST" http://localhost:$transcoderApiPort/requestTokens
+  curl -X "POST" http://localhost:$transcoderCliPort/requestTokens
 
   echo "Initializing current round"
-  curl -X "POST" http://localhost:$transcoderApiPort/initializeRound
+  curl -X "POST" http://localhost:$transcoderCliPort/initializeRound
 
   echo "Activating transcoder"
-  curl -d "blockRewardCut=10&feeShare=5&pricePerSegment=1&amount=500" \
+  curl -d "blockRewardCut=10&feeShare=5&pricePerSegment=1&amount=500" --data-urlencode "serviceURI=https://$transcoderServiceAddr" \
     -H "Content-Type: application/x-www-form-urlencoded" \
-    -X "POST" http://localhost:$transcoderApiPort/activateTranscoder\
+    -X "POST" http://localhost:$transcoderCliPort/activateTranscoder\
 
 }
 
