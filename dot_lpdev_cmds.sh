@@ -557,8 +557,8 @@ function __lpdev_node_update {
 
   cd $HOME
   wget $wget_args $URL
-  tar -xf livepeer_linux.tar
-  rm livepeer_linux.tar
+  tar -xzf livepeer_linux.tar.gz
+  rm livepeer_linux.tar.gz
   echo "Don't forget to restart any running nodes to use the latest release"
 
 }
