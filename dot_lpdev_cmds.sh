@@ -549,6 +549,7 @@ function __lpdev_node_reset {
   unset transcoderPid
   transcoderRunning=false
   unset transcoderGeth
+  rm -rf $nodeBaseDataDir/transcoder-*
 
   unset verifierPid
   verifierRunning=false
@@ -716,13 +717,24 @@ function __lpdev_node_transcoder {
     return 1
   fi
 
-  if ! $transcoderRunning
+  ##
+  # Attempt to reuse transcoder data
+  ##
+  transcoderExists=false
+  transcoderPath=$(ls -dt $nodeBaseDataDir/transcoder-* | head -1)
+  if  [ -d "${transcoderPath}" ]
   then
+    echo "Found exisitng transcoder working dir $transcoderPath"
+    transcoderExists=true
+  fi
+
+  if $transcoderExists
+  then
+    transcoderGeth=$(jq -r '.["address"]' < $transcoderPath/keystore/*)
+  else
     echo "Creating transcoder account"
     transcoderGeth=$(geth account new --password <(echo "pass") | cut -d' ' -f2 | tr -cd '[:alnum:]')
     echo "Created $transcoderGeth"
-  else
-    transcoderGeth=$(pgrep -fla "livepeer.*$transcoderApiPort" | sed -nr 's/.*ethAcctAddr ([a-zA-Z0-9]+) .*/\1/p')
   fi
 
   if [ -z $transcoderGeth ]
@@ -739,7 +751,9 @@ function __lpdev_node_transcoder {
   nodeDataDir=$nodeBaseDataDir/transcoder-${transcoderGeth:0:10}
   if [ ! -d $nodeDataDir ]
   then
-    mkdir -p $nodeDataDir
+    mkdir -p $nodeDataDir/keystore
+    ethKeystorePath=$(ls $gethDir/keystore/*$transcoderGeth)
+    mv $ethKeystorePath $nodeDataDir/keystore
   fi
   transIPFSPath=$HOME/.transcoder-ipfs-${transcoderGeth:0:10}
   if [ ! -d $transIPFSPath ]
@@ -750,7 +764,6 @@ function __lpdev_node_transcoder {
   echo "Sleeping for 3 secs"
   sleep 3s
 
-  ethKeystorePath=$(ls $gethDir/keystore/*$transcoderGeth)
   if ! $transcoderRunning && [ -n $transcoderGeth ]
   then
     echo "Running LivePeer transcode node with the following command:
@@ -758,7 +771,6 @@ function __lpdev_node_transcoder {
               -datadir $nodeDataDir \\
               -ethAcctAddr $transcoderGeth \\
               -ethIpcPath $gethIPC \\
-              -ethKeystorePath $ethKeystorePath \\
               -ethPassword \"pass\" \\
               -monitor=false \\
               -serviceAddr $transcoderServiceAddr \\
@@ -769,7 +781,7 @@ function __lpdev_node_transcoder {
               -transcoder"
 
     nohup $binDir -controllerAddr $controllerAddress -datadir $nodeDataDir \
-      -ethAcctAddr $transcoderGeth -ethIpcPath $gethIPC -ethKeystorePath $ethKeystorePath -ethPassword "pass" \
+      -ethAcctAddr $transcoderGeth -ethIpcPath $gethIPC -ethPassword "pass" \
       -monitor=false -serviceAddr $transcoderServiceAddr -httpAddr $transcoderHttpAddr \
       -cliAddr $transcoderCliAddr -ipfsPath $transIPFSPath -transcoder &>> $nodeDataDir/transcoder.log &
 
