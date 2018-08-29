@@ -544,6 +544,7 @@ function __lpdev_node_reset {
   unset broadcasterPid
   broadcasterRunning=false
   unset broadcasterGeth
+  rm -rf $nodeBaseDataDir/broadcaster-*
 
   unset transcoderPid
   transcoderRunning=false
@@ -595,13 +596,25 @@ function __lpdev_node_broadcaster {
     return 1
   fi
 
-  if ! $broadcasterRunning
+  ##
+  # Attempt to reuse broadcaster data
+  ##
+  broadcasterExists=false
+  broadcasterPath=$(ls -dt $nodeBaseDataDir/broadcaster-* | head -1)
+  if  [ -d "${broadcasterPath}" ]
   then
+    echo "Found exisitng broadcaster working dir $broadcasterPath"
+    broadcasterExists=true
+  fi
+
+
+  if $broadcasterExists
+  then
+    broadcasterGeth=$(jq -r '.["address"]' < $broadcasterPath/keystore/*)
+  else
     echo "Creating broadcaster account"
     broadcasterGeth=$(geth account new --password <(echo "pass") | cut -d' ' -f2 | tr -cd '[:alnum:]')
     echo "Created $broadcasterGeth"
-  else
-    broadcasterGeth=$(pgrep -fla "livepeer.*$broadcasterApiPort" | sed -nr 's/.*ethAcctAddr ([a-zA-Z0-9]+) .*/\1/p')
   fi
 
   if [ -z $broadcasterGeth ]
@@ -618,13 +631,14 @@ function __lpdev_node_broadcaster {
   nodeDataDir=$nodeBaseDataDir/broadcaster-${broadcasterGeth:0:10}
   if [ ! -d $nodeDataDir ]
   then
-    mkdir -p $nodeDataDir
+    mkdir -p $nodeDataDir/keystore
+    ethKeystorePath=$(ls $gethDir/keystore/*$broadcasterGeth)
+    mv $ethKeystorePath $nodeDataDir/keystore
   fi
 
   echo "Sleeping for 3 secs"
   sleep 3s
 
-  ethKeystorePath=$(ls $gethDir/keystore/*$broadcasterGeth)
   if ! $broadcasterRunning && [ -n $broadcasterGeth ]
   then
     echo "Running LivePeer broadcast node with the following command:
@@ -632,7 +646,6 @@ function __lpdev_node_broadcaster {
               -datadir $nodeDataDir \\
               -ethAcctAddr $broadcasterGeth \\
               -ethIpcPath $gethIPC \\
-              -ethKeystorePath $ethKeystorePath \\
               -ethPassword \"pass\" \\
               -monitor=false \\
               -gasLimit 4000000 \\
@@ -641,7 +654,7 @@ function __lpdev_node_broadcaster {
               -cliAddr $broadcasterCliAddr "
 
     nohup $binDir -controllerAddr $controllerAddress -datadir $nodeDataDir \
-      -ethAcctAddr $broadcasterGeth -ethIpcPath $gethIPC -ethKeystorePath $ethKeystorePath -ethPassword "pass" \
+      -ethAcctAddr $broadcasterGeth -ethIpcPath $gethIPC -ethPassword "pass" \
       -monitor=false -rtmpAddr $broadcasterRtmpAddr -httpAddr $broadcasterHttpAddr \
       -cliAddr $broadcasterCliAddr -gasLimit 4000000 &>> $nodeDataDir/broadcaster.log &
 
