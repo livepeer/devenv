@@ -80,6 +80,7 @@ Vagrant.configure("2") do |config|
   config.vm.provision "file", source: "install_src_deps.sh", destination: "$HOME/.install_src_deps.sh"
   config.vm.provision "shell", inline: "if ! grep -q lpdev_cmds.sh /home/vagrant/.bashrc; then echo 'source $HOME/.lpdev_cmds.sh' >> /home/vagrant/.bashrc; fi"
   config.vm.provision "shell", privileged: false, inline: "source $HOME/.lpdev_cmds.sh && __lpdev_node_update --no-verbose"
+  config.vm.provision "shell", inline: "if ! grep -q LD_LIBRARY_PATH /home/vagrant/.bashrc; then echo 'export LD_LIBRARY_PATH=/usr/local/lib' >> /home/vagrant/.bashrc; fi"
   config.vm.provision "shell", privileged: false, inline: <<~SCREENRC
     cat <<-SHELL_SCREENRC > $HOME/.screenrc
     	# An alternative hardstatus to display a bar at the bottom listing the
