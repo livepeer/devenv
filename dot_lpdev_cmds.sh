@@ -772,6 +772,7 @@ function __lpdev_node_transcoder {
               -ethIpcPath $gethIPC \\
               -ethPassword \"pass\" \\
               -monitor=false \\
+              -initializeRound=true \\
               -serviceAddr $transcoderServiceAddr \\
               -httpAddr $transcoderHttpAddr \\
               -cliAddr $transcoderCliAddr \\
@@ -780,7 +781,8 @@ function __lpdev_node_transcoder {
 
     nohup $binDir -controllerAddr $controllerAddress -datadir $nodeDataDir \
       -ethAcctAddr $transcoderGeth -ethIpcPath $gethIPC -ethPassword "pass" \
-      -monitor=false -serviceAddr $transcoderServiceAddr -httpAddr $transcoderHttpAddr \
+      -monitor=false -initializeRound=true \
+      -serviceAddr $transcoderServiceAddr -httpAddr $transcoderHttpAddr \
       -cliAddr $transcoderCliAddr -ipfsPath $transIPFSPath -transcoder &>> $nodeDataDir/transcoder.log &
 
     if [ $? -ne 0 ]
