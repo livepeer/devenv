@@ -649,7 +649,6 @@ function __lpdev_node_broadcaster {
               -ethIpcPath $gethIPC \\
               -ethPassword \"pass\" \\
               -monitor=false \\
-              -gasLimit 4000000 \\
               -rtmpAddr $broadcasterRtmpAddr \\
               -httpAddr $broadcasterHttpAddr \\
               -cliAddr $broadcasterCliAddr "
@@ -657,7 +656,7 @@ function __lpdev_node_broadcaster {
     nohup $binDir -controllerAddr $controllerAddress -datadir $nodeDataDir \
       -ethAcctAddr $broadcasterGeth -ethIpcPath $gethIPC -ethPassword "pass" \
       -monitor=false -rtmpAddr $broadcasterRtmpAddr -httpAddr $broadcasterHttpAddr \
-      -cliAddr $broadcasterCliAddr -gasLimit 4000000 &>> $nodeDataDir/broadcaster.log &
+      -cliAddr $broadcasterCliAddr &>> $nodeDataDir/broadcaster.log &
 
     if [ $? -ne 0 ]
     then
@@ -777,7 +776,6 @@ function __lpdev_node_transcoder {
               -httpAddr $transcoderHttpAddr \\
               -cliAddr $transcoderCliAddr \\
               -ipfsPath $transIPFSPath \\
-              -gasLimit 4000000 \\
               -transcoder"
 
     nohup $binDir -controllerAddr $controllerAddress -datadir $nodeDataDir \
