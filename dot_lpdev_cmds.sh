@@ -74,7 +74,7 @@ function __lpdev_status {
     for i in ${!gethAccounts[@]}
     do
       accountAddress=${gethAccounts[$i]}
-      if [ $i -eq 0 ]
+      if [ "${accountAddress}" = "${gethMiningAccount}" ]
       then
         accountAddress="$accountAddress (miner)"
       fi
@@ -141,9 +141,9 @@ function __lpdev_geth_refresh_status {
 
   gethPid=$(pgrep -f "geth.*-mine")
 
-  if [ -e $gethIPC ] && [ -z "${gethMiningAccount}" ]
+  if [ -z "${gethMiningAccount}" ]
   then
-    gethMiningAccount=$(geth attach ipc:/home/vagrant/.ethereum/geth.ipc --exec "eth.coinbase" 2> /dev/null | grep "0x" | cut -d"x" -f2 | tr -cd "[:alnum:]")
+    gethMiningAccount=$(cat $gethDir/lpMiningAccount 2>/dev/null)
   fi
 
   if [ -n "${gethPid}" ] && [ -n "${gethMiningAccount}" ]
@@ -177,6 +177,7 @@ function __lpdev_geth_init {
   else
     echo "Creating miner account"
     gethMiningAccount=$(geth account new --password <(echo "") | cut -d' ' -f2 | tr -cd '[:alnum:]')
+    echo $gethMiningAccount > $gethDir/lpMiningAccount
     echo "Created mining account $gethMiningAccount"
   fi
 
