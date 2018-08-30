@@ -245,14 +245,22 @@ function __lpdev_geth_run {
 
   echo "Running Geth miner with the following command:
   geth -networkid 54321 \\
-       -rpc \\
+       -rpc -ws \\
+       -rpcaddr "0.0.0.0" -wsaddr "0.0.0.0" \\
+       -rpccorsdomain "*" -wsorigins "*" \\
        -rpcapi 'personal,account,eth,web3,net' \\
+       -wsapi 'personal,account,eth,web3,net' \\
        -targetgaslimit 6700000 \\
        -unlock $gethMiningAccount \\
        --password <(echo \"\") \\
        -mine"
 
-  nohup geth -networkid 54321 -rpc -rpcapi 'personal,account,eth,web3,net' -targetgaslimit 6700000 -unlock $gethMiningAccount --password <(echo "") -mine &>>$nodeBaseDataDir/geth.log &
+  nohup geth -networkid 54321 -rpc -ws \
+      -rpcaddr "0.0.0.0" -wsaddr "0.0.0.0" \
+      -rpccorsdomain "*" -wsorigins "*" \
+      -rpcapi 'personal,account,eth,web3,net' \
+      -wsapi 'personal,account,eth,web3,net' \
+      -targetgaslimit 6700000 -unlock $gethMiningAccount --password <(echo "") -mine &>>$nodeBaseDataDir/geth.log &
 
   if [ $? -ne 0 ]
   then
