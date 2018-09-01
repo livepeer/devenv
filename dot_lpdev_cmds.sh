@@ -323,6 +323,7 @@ function __lpdev_protocol_init {
   if ! mountpoint -q $srcDir/protocol/node_modules
   then
     echo "Mounting local vm node_modules"
+    mkdir -p $srcDir/protocol/node_modules
     bindfs -n -o nonempty $HOME/.protocol_node_modules $srcDir/protocol/node_modules
   fi
 
