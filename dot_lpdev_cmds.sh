@@ -20,14 +20,18 @@ protocolBuilt=false
 protocolBranch="repo not found"
 controllerAddress=
 
-broadcasterRtmpPort=1935
-broadcasterApiPort=8935
+broadcasterCliPort=7935
+broadcasterRtmpAddr=0.0.0.0:1935
+broadcasterHttpAddr=0.0.0.0:8935
+broadcasterCliAddr=0.0.0.0:$broadcasterCliPort
 broadcasterPid=0
 broadcasterRunning=false
 broadcasterGeth=
 
-transcoderRtmpPort=1936
-transcoderApiPort=8936
+transcoderCliPort=7936
+transcoderServiceAddr=127.0.0.1:8936
+transcoderHttpAddr=0.0.0.0:8936
+transcoderCliAddr=0.0.0.0:$transcoderCliPort
 transcoderPid=0
 transcoderRunning=false
 transcoderGeth=
@@ -70,7 +74,7 @@ function __lpdev_status {
     for i in ${!gethAccounts[@]}
     do
       accountAddress=${gethAccounts[$i]}
-      if [ $i -eq 0 ]
+      if [ "${accountAddress}" = "${gethMiningAccount}" ]
       then
         accountAddress="$accountAddress (miner)"
       fi
@@ -137,9 +141,9 @@ function __lpdev_geth_refresh_status {
 
   gethPid=$(pgrep -f "geth.*-mine")
 
-  if [ -e $gethIPC ]
+  if [ -z "${gethMiningAccount}" ]
   then
-    gethMiningAccount=$(geth attach ipc:/home/vagrant/.ethereum/geth.ipc --exec "eth.coinbase" 2> /dev/null | grep "0x" | cut -d"x" -f2 | tr -cd "[:alnum:]")
+    gethMiningAccount=$(cat $gethDir/lpMiningAccount 2>/dev/null)
   fi
 
   if [ -n "${gethPid}" ] && [ -n "${gethMiningAccount}" ]
@@ -173,6 +177,7 @@ function __lpdev_geth_init {
   else
     echo "Creating miner account"
     gethMiningAccount=$(geth account new --password <(echo "") | cut -d' ' -f2 | tr -cd '[:alnum:]')
+    echo $gethMiningAccount > $gethDir/lpMiningAccount
     echo "Created mining account $gethMiningAccount"
   fi
 
@@ -241,14 +246,22 @@ function __lpdev_geth_run {
 
   echo "Running Geth miner with the following command:
   geth -networkid 54321 \\
-       -rpc \\
+       -rpc -ws \\
+       -rpcaddr "0.0.0.0" -wsaddr "0.0.0.0" \\
+       -rpccorsdomain "*" -wsorigins "*" \\
        -rpcapi 'personal,account,eth,web3,net' \\
+       -wsapi 'personal,account,eth,web3,net' \\
        -targetgaslimit 6700000 \\
        -unlock $gethMiningAccount \\
        --password <(echo \"\") \\
        -mine"
 
-  nohup geth -networkid 54321 -rpc -rpcapi 'personal,account,eth,web3,net' -targetgaslimit 6700000 -unlock $gethMiningAccount --password <(echo "") -mine &>>$nodeBaseDataDir/geth.log &
+  nohup geth -networkid 54321 -rpc -ws \
+      -rpcaddr "0.0.0.0" -wsaddr "0.0.0.0" \
+      -rpccorsdomain "*" -wsorigins "*" \
+      -rpcapi 'personal,account,eth,web3,net' \
+      -wsapi 'personal,account,eth,web3,net' \
+      -targetgaslimit 6700000 -unlock $gethMiningAccount --password <(echo "") -mine &>>$nodeBaseDataDir/geth.log &
 
   if [ $? -ne 0 ]
   then
@@ -312,6 +325,16 @@ function __lpdev_protocol_init {
     echo "Mounting local vm node_modules"
     bindfs -n -o nonempty $HOME/.protocol_node_modules $srcDir/protocol/node_modules
   fi
+
+  ##
+  # Set devenv specific configuration
+  ##
+  echo "Setting devenv specific protocol parameters"
+  migrations="$HOME/src/protocol/migrations/migrations.config.js"
+  sed -i 's/roundLength:.*$/roundLength: 50,/' $migrations
+  sed -i 's/verificationRate:.*$/verificationRate: 100,/' $migrations
+  sed -i 's/verificationPeriod:.*$/verificationPeriod: 50,/' $migrations
+  sed -i 's/verificationSlashingPeriod:.*$/verificationSlashingPeriod: 50,/' $migrations
 
   ##
   # Install local dev truffle.js
@@ -480,7 +503,7 @@ function __lpdev_protocol_deploy {
 
 function __lpdev_node_refresh_status {
 
-  broadcasterPid=$(pgrep -f "livepeer.*$broadcasterApiPort")
+  broadcasterPid=$(pgrep -f "livepeer.*$broadcasterCliAddr")
   if [ -n "${broadcasterPid}" ]
   then
     broadcasterRunning=true
@@ -488,7 +511,7 @@ function __lpdev_node_refresh_status {
     broadcasterRunning=false
   fi
 
-  transcoderPid=$(pgrep -f "livepeer.*$transcoderApiPort")
+  transcoderPid=$(pgrep -f "livepeer.*$transcoderCliAddr")
   if [ -n "${transcoderPid}" ]
   then
     transcoderRunning=true
@@ -530,10 +553,12 @@ function __lpdev_node_reset {
   unset broadcasterPid
   broadcasterRunning=false
   unset broadcasterGeth
+  rm -rf $nodeBaseDataDir/broadcaster-*
 
   unset transcoderPid
   transcoderRunning=false
   unset transcoderGeth
+  rm -rf $nodeBaseDataDir/transcoder-*
 
   unset verifierPid
   verifierRunning=false
@@ -557,8 +582,8 @@ function __lpdev_node_update {
 
   cd $HOME
   wget $wget_args $URL
-  tar -xf livepeer_linux.tar
-  rm livepeer_linux.tar
+  tar -xzf livepeer_linux.tar.gz
+  rm livepeer_linux.tar.gz
   echo "Don't forget to restart any running nodes to use the latest release"
 
 }
@@ -581,13 +606,25 @@ function __lpdev_node_broadcaster {
     return 1
   fi
 
-  if ! $broadcasterRunning
+  ##
+  # Attempt to reuse broadcaster data
+  ##
+  broadcasterExists=false
+  broadcasterPath=$(ls -dt $nodeBaseDataDir/broadcaster-* | head -1)
+  if  [ -d "${broadcasterPath}" ]
   then
+    echo "Found exisitng broadcaster working dir $broadcasterPath"
+    broadcasterExists=true
+  fi
+
+
+  if $broadcasterExists
+  then
+    broadcasterGeth=$(jq -r '.["address"]' < $broadcasterPath/keystore/*)
+  else
     echo "Creating broadcaster account"
     broadcasterGeth=$(geth account new --password <(echo "pass") | cut -d' ' -f2 | tr -cd '[:alnum:]')
     echo "Created $broadcasterGeth"
-  else
-    broadcasterGeth=$(pgrep -fla "livepeer.*$broadcasterApiPort" | sed -nr 's/.*ethAcctAddr ([a-zA-Z0-9]+) .*/\1/p')
   fi
 
   if [ -z $broadcasterGeth ]
@@ -604,32 +641,31 @@ function __lpdev_node_broadcaster {
   nodeDataDir=$nodeBaseDataDir/broadcaster-${broadcasterGeth:0:10}
   if [ ! -d $nodeDataDir ]
   then
-    mkdir -p $nodeDataDir
+    mkdir -p $nodeDataDir/keystore
+    ethKeystorePath=$(ls $gethDir/keystore/*$broadcasterGeth)
+    mv $ethKeystorePath $nodeDataDir/keystore
   fi
 
   echo "Sleeping for 3 secs"
   sleep 3s
 
-  ethKeystorePath=$(ls $gethDir/keystore/*$broadcasterGeth)
   if ! $broadcasterRunning && [ -n $broadcasterGeth ]
   then
     echo "Running LivePeer broadcast node with the following command:
-      $binDir -bootIDs "" -bootAddrs "" \\
-              -controllerAddr $controllerAddress \\
+      $binDir -controllerAddr $controllerAddress \\
               -datadir $nodeDataDir \\
               -ethAcctAddr $broadcasterGeth \\
               -ethIpcPath $gethIPC \\
-              -ethKeystorePath $ethKeystorePath \\
               -ethPassword \"pass\" \\
               -monitor=false \\
-              -gasLimit 4000000 \\
-              -rtmp $broadcasterRtmpPort \\
-              -http $broadcasterApiPort" \\
+              -rtmpAddr $broadcasterRtmpAddr \\
+              -httpAddr $broadcasterHttpAddr \\
+              -cliAddr $broadcasterCliAddr "
 
-    nohup $binDir -bootIDs "" -bootAddrs "" -controllerAddr $controllerAddress -datadir $nodeDataDir \
-      -ethAcctAddr $broadcasterGeth -ethIpcPath $gethIPC -ethKeystorePath $ethKeystorePath -ethPassword "pass" \
-      -monitor=false -rtmp $broadcasterRtmpPort \
-      -http $broadcasterApiPort -gasLimit 4000000 &>> $nodeDataDir/broadcaster.log &
+    nohup $binDir -controllerAddr $controllerAddress -datadir $nodeDataDir \
+      -ethAcctAddr $broadcasterGeth -ethIpcPath $gethIPC -ethPassword "pass" \
+      -monitor=false -rtmpAddr $broadcasterRtmpAddr -httpAddr $broadcasterHttpAddr \
+      -cliAddr $broadcasterCliAddr &>> $nodeDataDir/broadcaster.log &
 
     if [ $? -ne 0 ]
     then
@@ -645,7 +681,7 @@ function __lpdev_node_broadcaster {
   # Wait for the node's webserver to start
   echo -n "Attempting to connect to the LivePeer broadcast node webserver"
   attempts=15
-  while ! nc -z localhost $broadcasterApiPort
+  while ! nc -z localhost $broadcasterCliPort
   do
     if [ $attempts -eq 0 ]
     then
@@ -663,10 +699,10 @@ function __lpdev_node_broadcaster {
   sleep 3s
 
   echo "Requesting test tokens"
-  curl -X "POST" http://localhost:$broadcasterApiPort/requestTokens
+  curl -X "POST" http://localhost:$broadcasterCliPort/requestTokens
 
   echo "Depositing 500 Wei"
-  curl -X "POST" http://localhost:$broadcasterApiPort/deposit \
+  curl -X "POST" http://localhost:$broadcasterCliPort/deposit \
     --data-urlencode "amount=500"
 
 }
@@ -689,13 +725,24 @@ function __lpdev_node_transcoder {
     return 1
   fi
 
-  if ! $transcoderRunning
+  ##
+  # Attempt to reuse transcoder data
+  ##
+  transcoderExists=false
+  transcoderPath=$(ls -dt $nodeBaseDataDir/transcoder-* | head -1)
+  if  [ -d "${transcoderPath}" ]
   then
+    echo "Found exisitng transcoder working dir $transcoderPath"
+    transcoderExists=true
+  fi
+
+  if $transcoderExists
+  then
+    transcoderGeth=$(jq -r '.["address"]' < $transcoderPath/keystore/*)
+  else
     echo "Creating transcoder account"
     transcoderGeth=$(geth account new --password <(echo "pass") | cut -d' ' -f2 | tr -cd '[:alnum:]')
     echo "Created $transcoderGeth"
-  else
-    transcoderGeth=$(pgrep -fla "livepeer.*$transcoderApiPort" | sed -nr 's/.*ethAcctAddr ([a-zA-Z0-9]+) .*/\1/p')
   fi
 
   if [ -z $transcoderGeth ]
@@ -712,7 +759,9 @@ function __lpdev_node_transcoder {
   nodeDataDir=$nodeBaseDataDir/transcoder-${transcoderGeth:0:10}
   if [ ! -d $nodeDataDir ]
   then
-    mkdir -p $nodeDataDir
+    mkdir -p $nodeDataDir/keystore
+    ethKeystorePath=$(ls $gethDir/keystore/*$transcoderGeth)
+    mv $ethKeystorePath $nodeDataDir/keystore
   fi
   transIPFSPath=$HOME/.transcoder-ipfs-${transcoderGeth:0:10}
   if [ ! -d $transIPFSPath ]
@@ -720,21 +769,9 @@ function __lpdev_node_transcoder {
     mkdir -p $transIPFSPath
   fi
 
-  bootNodePort=$(pgrep -fla "livepeer.*bootnode" | sed -nr "s/.*http ([0-9]+)( .*|$)/\1/p")
-  if [ -n $bootNodePort ]
-  then
-    bootNodeId=$(curl http://localhost:$bootNodePort/nodeID 2> /dev/null)
-    if [ -z $bootNodeId ]
-    then
-      echo "Could not find a boot node id (make sure you're running a node with the -bootnode flag)"
-      return 1
-    fi
-  fi
-
   echo "Sleeping for 3 secs"
   sleep 3s
 
-  ethKeystorePath=$(ls $gethDir/keystore/*$transcoderGeth)
   if ! $transcoderRunning && [ -n $transcoderGeth ]
   then
     echo "Running LivePeer transcode node with the following command:
@@ -742,23 +779,20 @@ function __lpdev_node_transcoder {
               -datadir $nodeDataDir \\
               -ethAcctAddr $transcoderGeth \\
               -ethIpcPath $gethIPC \\
-              -ethKeystorePath $ethKeystorePath \\
               -ethPassword \"pass\" \\
               -monitor=false \\
-              -rtmp $transcoderRtmpPort \\
-              -http $transcoderApiPort \\
-              -bootID $bootNodeId \\
-              -bootAddr \"/ip4/127.0.0.1/tcp/15000\" \\
-              -p 15001 \\
+              -initializeRound=true \\
+              -serviceAddr $transcoderServiceAddr \\
+              -httpAddr $transcoderHttpAddr \\
+              -cliAddr $transcoderCliAddr \\
               -ipfsPath $transIPFSPath \\
-              -gasLimit 4000000 \\
               -transcoder"
 
-    nohup $binDir -p 15001 -controllerAddr $controllerAddress -datadir $nodeDataDir \
-      -ethAcctAddr $transcoderGeth -ethIpcPath $gethIPC -ethKeystorePath $ethKeystorePath -ethPassword "pass" \
-      -monitor=false -rtmp $transcoderRtmpPort \
-      -http $transcoderApiPort -bootID $bootNodeId -bootAddr "/ip4/127.0.0.1/tcp/15000" \
-      -p 15001 -ipfsPath $transIPFSPath -transcoder -gasLimit 4000000 &>> $nodeDataDir/transcoder.log &
+    nohup $binDir -controllerAddr $controllerAddress -datadir $nodeDataDir \
+      -ethAcctAddr $transcoderGeth -ethIpcPath $gethIPC -ethPassword "pass" \
+      -monitor=false -initializeRound=true \
+      -serviceAddr $transcoderServiceAddr -httpAddr $transcoderHttpAddr \
+      -cliAddr $transcoderCliAddr -ipfsPath $transIPFSPath -transcoder &>> $nodeDataDir/transcoder.log &
 
     if [ $? -ne 0 ]
     then
@@ -774,7 +808,7 @@ function __lpdev_node_transcoder {
   # Wait for the node's webserver to start
   echo -n "Attempting to connect to the LivePeer transcoder node webserver"
   attempts=15
-  while ! nc -z localhost $transcoderApiPort
+  while ! nc -z localhost $transcoderCliPort
   do
     if [ $attempts -eq 0 ]
     then
@@ -792,15 +826,15 @@ function __lpdev_node_transcoder {
   sleep 3s
 
   echo "Requesting test tokens"
-  curl -X "POST" http://localhost:$transcoderApiPort/requestTokens
+  curl -X "POST" http://localhost:$transcoderCliPort/requestTokens
 
   echo "Initializing current round"
-  curl -X "POST" http://localhost:$transcoderApiPort/initializeRound
+  curl -X "POST" http://localhost:$transcoderCliPort/initializeRound
 
   echo "Activating transcoder"
-  curl -d "blockRewardCut=10&feeShare=5&pricePerSegment=1&amount=500" \
+  curl -d "blockRewardCut=10&feeShare=5&pricePerSegment=1&amount=500" --data-urlencode "serviceURI=https://$transcoderServiceAddr" \
     -H "Content-Type: application/x-www-form-urlencoded" \
-    -X "POST" http://localhost:$transcoderApiPort/activateTranscoder\
+    -X "POST" http://localhost:$transcoderCliPort/activateTranscoder\
 
 }
 

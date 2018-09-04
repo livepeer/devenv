@@ -4,6 +4,11 @@ set -ex
 
 BASEDIR="$HOME/src"
 
+##
+# Note that we use shared libraries here to improve build times.
+# Release builds should use static libraries throughout.
+##
+
 function build_nasm {
   cd "$BASEDIR"
   rm -rf "$BASEDIR/nasm"
@@ -19,7 +24,7 @@ function build_x264 {
   rm -rf "$BASEDIR/x264"
   git clone http://git.videolan.org/git/x264.git "$BASEDIR/x264"
   cd "$BASEDIR/x264"
-  ./configure --enable-pic --enable-static
+  ./configure --enable-pic --enable-shared
   make
 }
 
@@ -28,7 +33,7 @@ function build_ffmpeg {
   rm -rf "$BASEDIR/ffmpeg"
   git clone https://git.ffmpeg.org/ffmpeg.git "$BASEDIR/ffmpeg"
   cd "$BASEDIR/ffmpeg"
-  ./configure --enable-gpl --enable-libx264
+  ./configure --enable-shared --disable-static --enable-gpl --enable-libx264
   make
 }
 
