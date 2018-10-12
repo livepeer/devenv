@@ -33,7 +33,7 @@ function build_ffmpeg {
   rm -rf "$BASEDIR/ffmpeg"
   git clone https://git.ffmpeg.org/ffmpeg.git "$BASEDIR/ffmpeg"
   cd "$BASEDIR/ffmpeg"
-  ./configure --enable-shared --disable-static --enable-gpl --enable-libx264
+  ./configure --enable-shared --disable-static --enable-gpl --enable-libx264 --enable-gnutls
   make
 }
 
