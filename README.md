@@ -27,20 +27,21 @@ host-machine $ vagrant up
 
 ### Host Machine Repos and `$LPSRC`
 
-Vagrant will mount a host machine directory as the location for this
-project's source repos in the virtual machine as `$HOME/src`.
+By default, Vagrant will mount a host machine directory as the location for 
+this project's source repos in the virtual machine as `$HOME/src`.
 
-You can provide a specific directory to Vagrant when bringing the
-virtual machine "up" via the environment variable `$LPSRC`.
+You can provide a customized directory to Vagrant when bringing the
+virtual machine "up" via the environment variable `$LPSRC`. We recommend
+the directory of your `devenv` repo.
 
 ```
-host-machine $ LPSRC=$HOME/your/local/repos/dir vagrant up
+host-machine $ LPSRC=$HOME/your/local/repos/devenv vagrant up
 ```
 
 Or during a reload:
 
 ```
-host-machine $ LPSRC=$HOME/your/local/repos/dir vagrant reload
+host-machine $ LPSRC=$HOME/your/local/repos/devenv vagrant reload
 ```
 
 If this is not provided and `~/src` does not exist, the default value of
