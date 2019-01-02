@@ -204,14 +204,14 @@ function __lpdev_geth_init {
       "eip158Block": 3,
       "byzantiumBlock": 4,
       "clique": {
-        "period": 2,
+        "period": 1,
         "epoch": 30000
       }
     },
     "nonce": "0x0",
     "timestamp": "0x59bc2eff",
     "extraData": "0x0000000000000000000000000000000000000000000000000000000000000000${gethMiningAccount}0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-    "gasLimit": "0x663be0",
+    "gasLimit": "0x7A1200",
     "difficulty": "0x1",
     "mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
     "coinbase": "0x0000000000000000000000000000000000000000",
@@ -251,7 +251,7 @@ function __lpdev_geth_run {
        -rpccorsdomain "*" -wsorigins "*" \\
        -rpcapi 'personal,account,eth,web3,net' \\
        -wsapi 'personal,account,eth,web3,net' \\
-       -targetgaslimit 6700000 \\
+       -targetgaslimit 8000000 \\
        -unlock $gethMiningAccount \\
        --password <(echo \"\") \\
        -mine"
@@ -261,7 +261,7 @@ function __lpdev_geth_run {
       -rpccorsdomain "*" -wsorigins "*" \
       -rpcapi 'personal,account,eth,web3,net' \
       -wsapi 'personal,account,eth,web3,net' \
-      -targetgaslimit 6700000 -unlock $gethMiningAccount --password <(echo "") -mine &>>$nodeBaseDataDir/geth.log &
+      -targetgaslimit 8000000 -unlock $gethMiningAccount --password <(echo "") -mine &>>$nodeBaseDataDir/geth.log &
 
   if [ $? -ne 0 ]
   then
@@ -311,7 +311,7 @@ function __lpdev_protocol_init {
     echo "Cloning github.com/livepeer/protocol into src directory"
     OPWD=$PWD
     cd $srcDir
-    git clone -b master "https://github.com/livepeer/protocol.git"
+    git clone -b pm "https://github.com/livepeer/protocol.git"
     cd $OPWD
   fi
 
@@ -333,9 +333,6 @@ function __lpdev_protocol_init {
   echo "Setting devenv specific protocol parameters"
   migrations="$HOME/src/protocol/migrations/migrations.config.js"
   sed -i 's/roundLength:.*$/roundLength: 50,/' $migrations
-  sed -i 's/verificationRate:.*$/verificationRate: 100,/' $migrations
-  sed -i 's/verificationPeriod:.*$/verificationPeriod: 50,/' $migrations
-  sed -i 's/verificationSlashingPeriod:.*$/verificationSlashingPeriod: 50,/' $migrations
 
   ##
   # Install local dev truffle.js
@@ -349,7 +346,7 @@ function __lpdev_protocol_init {
     return 1
   fi
 
-  if grep -q ${gethMiningAccount:-"none"} $srcDir/protocol/truffle.js
+   if grep -q ${gethMiningAccount:-"none"} $srcDir/protocol/truffle.js
   then
     echo "Local dev version of $srcDir/protocol/truffle.js already exists"
   else
@@ -365,61 +362,28 @@ module.exports = {
             host: "localhost",
             port: 8545,
             network_id: "*", // Match any network id
-            gas: 6700000
+            gas: 8000000
         },
         lpTestNet: {
             from: "0x$gethMiningAccount",
             host: "localhost",
             port: 8545,
             network_id: 54321,
-            gas: 6700000
+            gas: 8000000
         }
     },
-    solc: {
-        optimizer: {
-            enabled: true,
-            runs: 200
+    compilers: {
+        solc: {
+            version: "0.4.25",
+            settings: {
+                optimizer: {
+                    enabled: true,
+                    runs: 200
+                }
+            }
         }
     }
 };
-EOF
-
-  fi
-
-  if grep -q ${gethMiningAccount:-"none"} $srcDir/protocol/scripts/addSolver.js
-  then
-    echo "Local dev version of $srcDir/protocol/scripts/addSolver.js already exists"
-  else
-    echo "Installing local dev version of $srcDir/protocol/scripts/addSolver.js"
-
-    cat <<EOF > $srcDir/protocol/scripts/addSolver.js
-const LivepeerVerifier = artifacts.require("LivepeerVerifier")
-
-module.exports = async () => {
-    const newSolver = process.argv[4]
-    const verifier = await LivepeerVerifier.deployed()
-
-    await verifier.addSolver(newSolver)
-}
-EOF
-
-  fi
-
-  if grep -q ${gethMiningAccount:="none"} $srcDir/protocol/scripts/setVerificationCodeHash.js
-  then
-    echo "Local dev version of $srcDir/protocol/scripts/setVerificationCodeHash.js already exists"
-  else
-    echo "Installing local dev version of $srcDir/protocol/scripts/setVerificationCodeHash.js"
-
-    cat <<EOF > $srcDir/protocol/scripts/setVerificationCodeHash.js
-const LivepeerVerifier = artifacts.require("LivepeerVerifier")
-
-module.exports = async () => {
-    const codeHash = process.argv[4]
-    const verifier = await LivepeerVerifier.deployed()
-
-    await verifier.setVerificationCodeHash(codeHash)
-}
 EOF
 
   fi
@@ -485,15 +449,12 @@ function __lpdev_protocol_deploy {
 
   OPWD=$PWD
   cd $srcDir/protocol
-  migrateCmd="truffle migrate --reset --network lpTestNet"
+  migrateCmd="npm run migrate -- --network=lpTestNet"
   echo "Running $migrateCmd"
   eval $migrateCmd
-  unpauseCmd="truffle exec scripts/unpauseController.js"
+  unpauseCmd="./node_modules/.bin/truffle exec scripts/unpauseController.js"
   echo "Running $unpauseCmd"
   eval $unpauseCmd
-  setVerificationCodeHashCmd="truffle exec scripts/setVerificationCodeHash.js QmQizrXQZsyocabJt3NvRaCYw6gTFeu28JRpjserZMxFYs"
-  echo "Running $setVerificationCodeHashCmd"
-  eval $setVerificationCodeHashCmd
   cd $OPWD
 
   if $redeployed
@@ -642,9 +603,9 @@ function __lpdev_node_broadcaster {
   nodeDataDir=$nodeBaseDataDir/broadcaster-${broadcasterGeth:0:10}
   if [ ! -d $nodeDataDir ]
   then
-    mkdir -p $nodeDataDir/keystore
+    mkdir -p $nodeDataDir/devenv/keystore
     ethKeystorePath=$(ls $gethDir/keystore/*$broadcasterGeth)
-    mv $ethKeystorePath $nodeDataDir/keystore
+    mv $ethKeystorePath $nodeDataDir/devenv/keystore
   fi
 
   echo "Sleeping for 3 secs"
@@ -657,6 +618,7 @@ function __lpdev_node_broadcaster {
               -datadir $nodeDataDir \\
               -ethAcctAddr $broadcasterGeth \\
               -ethIpcPath $gethIPC \\
+              -devenv=true \\
               -ethPassword \"pass\" \\
               -monitor=false \\
               -rtmpAddr $broadcasterRtmpAddr \\
@@ -664,9 +626,9 @@ function __lpdev_node_broadcaster {
               -cliAddr $broadcasterCliAddr "
 
     nohup $binDir -controllerAddr $controllerAddress -datadir $nodeDataDir \
-      -ethAcctAddr $broadcasterGeth -ethIpcPath $gethIPC -ethPassword "pass" \
+      -ethAcctAddr $broadcasterGeth -ethIpcPath $gethIPC -devenv=true -ethPassword "pass" \
       -monitor=false -rtmpAddr $broadcasterRtmpAddr -httpAddr $broadcasterHttpAddr \
-      -cliAddr $broadcasterCliAddr &>> $nodeDataDir/broadcaster.log &
+      -cliAddr $broadcasterCliAddr &>> $nodeDataDir/devenv/broadcaster.log &
 
     if [ $? -ne 0 ]
     then
@@ -698,14 +660,6 @@ function __lpdev_node_broadcaster {
 
   echo "Sleeping for 3 secs"
   sleep 3s
-
-  echo "Requesting test tokens"
-  curl -X "POST" http://localhost:$broadcasterCliPort/requestTokens
-
-  echo "Depositing 500 Wei"
-  curl -X "POST" http://localhost:$broadcasterCliPort/deposit \
-    --data-urlencode "amount=500"
-
 }
 
 function __lpdev_node_transcoder {
@@ -760,9 +714,9 @@ function __lpdev_node_transcoder {
   nodeDataDir=$nodeBaseDataDir/transcoder-${transcoderGeth:0:10}
   if [ ! -d $nodeDataDir ]
   then
-    mkdir -p $nodeDataDir/keystore
+    mkdir -p $nodeDataDir/devenv/keystore
     ethKeystorePath=$(ls $gethDir/keystore/*$transcoderGeth)
-    mv $ethKeystorePath $nodeDataDir/keystore
+    mv $ethKeystorePath $nodeDataDir/devenv/keystore
   fi
   transIPFSPath=$HOME/.transcoder-ipfs-${transcoderGeth:0:10}
   if [ ! -d $transIPFSPath ]
@@ -781,6 +735,7 @@ function __lpdev_node_transcoder {
               -ethAcctAddr $transcoderGeth \\
               -ethIpcPath $gethIPC \\
               -ethPassword \"pass\" \\
+              -devenv=true \\
               -monitor=false \\
               -initializeRound=true \\
               -serviceAddr $transcoderServiceAddr \\
@@ -791,9 +746,9 @@ function __lpdev_node_transcoder {
 
     nohup $binDir -controllerAddr $controllerAddress -datadir $nodeDataDir \
       -ethAcctAddr $transcoderGeth -ethIpcPath $gethIPC -ethPassword "pass" \
-      -monitor=false -initializeRound=true \
+      -devenv=true -monitor=false -initializeRound=true \
       -serviceAddr $transcoderServiceAddr -httpAddr $transcoderHttpAddr \
-      -cliAddr $transcoderCliAddr -ipfsPath $transIPFSPath -transcoder &>> $nodeDataDir/transcoder.log &
+      -cliAddr $transcoderCliAddr -ipfsPath $transIPFSPath -transcoder &>> $nodeDataDir/devenv/transcoder.log &
 
     if [ $? -ne 0 ]
     then
@@ -835,7 +790,7 @@ function __lpdev_node_transcoder {
   echo "Activating transcoder"
   curl -d "blockRewardCut=10&feeShare=5&pricePerSegment=1&amount=500" --data-urlencode "serviceURI=https://$transcoderServiceAddr" \
     -H "Content-Type: application/x-www-form-urlencoded" \
-    -X "POST" http://localhost:$transcoderCliPort/activateTranscoder\
+    -X "POST" http://localhost:$transcoderCliPort/activateOrchestrator\
 
 }
 
