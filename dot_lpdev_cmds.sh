@@ -333,6 +333,7 @@ function __lpdev_protocol_init {
   echo "Setting devenv specific protocol parameters"
   migrations="$HOME/src/protocol/migrations/migrations.config.js"
   sed -i 's/roundLength:.*$/roundLength: 50,/' $migrations
+  sed -i 's/unlockPeriod:.*$/unlockPeriod: 50,/' $migrations
 
   ##
   # Install local dev truffle.js
