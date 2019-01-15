@@ -347,7 +347,7 @@ function __lpdev_protocol_init {
     return 1
   fi
 
-   if grep -q ${gethMiningAccount:-"none"} $srcDir/protocol/truffle.js
+  if grep -q ${gethMiningAccount:-"none"} $srcDir/protocol/truffle.js
   then
     echo "Local dev version of $srcDir/protocol/truffle.js already exists"
   else
@@ -450,7 +450,7 @@ function __lpdev_protocol_deploy {
 
   OPWD=$PWD
   cd $srcDir/protocol
-  migrateCmd="npm run migrate -- --network=lpTestNet"
+  migrateCmd="npm run migrate -- --reset --network=lpTestNet"
   echo "Running $migrateCmd"
   eval $migrateCmd
   unpauseCmd="./node_modules/.bin/truffle exec scripts/unpauseController.js"
