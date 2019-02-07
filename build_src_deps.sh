@@ -12,7 +12,7 @@ BASEDIR="$HOME/src"
 function build_nasm {
   cd "$BASEDIR"
   rm -rf "$BASEDIR/nasm"
-  git clone -b nasm-2.13.02 http://repo.or.cz/nasm.git "$BASEDIR/nasm"
+  git clone -b nasm-2.14.02 https://repo.or.cz/nasm.git "$BASEDIR/nasm"
   cd "$BASEDIR/nasm"
   ./autogen.sh
   ./configure
@@ -24,6 +24,8 @@ function build_x264 {
   rm -rf "$BASEDIR/x264"
   git clone http://git.videolan.org/git/x264.git "$BASEDIR/x264"
   cd "$BASEDIR/x264"
+  # git master as of this writing
+  git checkout 545de2ffec6ae9a80738de1b2c8cf820249a2530
   ./configure --enable-pic --enable-shared
   make
 }
@@ -31,7 +33,7 @@ function build_x264 {
 function build_ffmpeg {
   cd "$BASEDIR"
   rm -rf "$BASEDIR/ffmpeg"
-  git clone https://git.ffmpeg.org/ffmpeg.git "$BASEDIR/ffmpeg"
+  git clone -b n4.1 https://git.ffmpeg.org/ffmpeg.git "$BASEDIR/ffmpeg"
   cd "$BASEDIR/ffmpeg"
   ./configure --enable-shared --disable-static --enable-gpl --enable-libx264 --enable-gnutls
   make
